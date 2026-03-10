@@ -46,11 +46,11 @@ class ACDC_Dataset(Dataset) :
         data_path = os.path.join(patient_dir, f"patient{pid}_4d.nii.gz")
         data=sitk.ReadImage(data_path)  # [T, D, H, W]
        
-        # resample
+        # resample to target spacing 
         current_video = resample(data, self.target_spacing) # [T, D, H, W]
         length, depth, height, width = current_video.shape
 
-        # crop/pad 
+        # crop/pad to target size  
 
         if depth >= self.target_size[-1]:
             sd = int((depth - self.target_size[-1]) / 2)
@@ -63,9 +63,12 @@ class ACDC_Dataset(Dataset) :
 
         current_video = self.transform(current_video) # [T, D, H, W]
 
-        # normalize 
+        # normalize to [0,1] 
 
-        
+        current_video = current_video - current_video.min()
+        current_video = current_video / current_video.std()
+        current_video = current_video / current_video.max()
+
         return current_video
     
     def preprocess(self, is_train):
