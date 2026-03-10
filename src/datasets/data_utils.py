@@ -2,6 +2,7 @@ import os
 import glob
 import re
 import numpy as np
+import json 
 
 def load_acdc_info(acdc_training_root, out_path, seed=0, train_ratio=0.9):
 
@@ -17,7 +18,9 @@ def load_acdc_info(acdc_training_root, out_path, seed=0, train_ratio=0.9):
     patient_dirs = sorted(glob.glob(os.path.join(acdc_training_root, "patient[0-9][0-9][0-9]")))
     if len(patient_dirs) == 0:
         raise FileNotFoundError(f"No patientXXX folders found under {acdc_training_root}")
-
+    # json 
+    with open("ACDC_info.json", "r") as f : 
+        data = json.load(f)
     # patient ids
     cases = []
     for d in patient_dirs:
@@ -40,6 +43,10 @@ def load_acdc_info(acdc_training_root, out_path, seed=0, train_ratio=0.9):
             d[pid] = {
                 "patient_id": pid,
                 "patient_dir": pdir,
+                "ED" : data[pid]["ED"],
+                "ES" : data[pid]["ES"],
+                "group" : data[pid]["Group"], 
+                "n_frames" : data[pid]["NbFrame"]
             }
         return d
 
