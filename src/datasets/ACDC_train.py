@@ -22,7 +22,7 @@ from data_utils import load_acdc_info
 
 
 class ACDC_Dataset(Dataset) : 
-    def __init__(self, infos, cfg_ACDCA_train, is_train=True):
+    def __init__(self, infos, cfg_ACDCA_train : DictConfig, is_train=True):
         super().__init__()
         self.target_size = tuple(cfg_ACDCA_train.target_size)      # (H, W, D)
         self.target_spacing = tuple(cfg_ACDCA_train.target_spacing)  # (sx, sy, sz)
