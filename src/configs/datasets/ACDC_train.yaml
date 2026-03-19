@@ -1,9 +1,9 @@
 target_spacing : [1.5, 1.5, 3.15] # resampling
 target_size : [128, 128, 32] # cropping
-intensity : [0, 1] # normalization
 # aug : False # data augmentation
 root : home/renku/work/s3-bucket/ACDC/training # data path 
 out_path : home/renku/work/Cardiac-Deformation-SDSC/src/datasets # info save paths
 seed : 21
 train_ratio : 0.9
- 
+interpolation_mode : 'bicubic'
+n_frames : 12 # Tmax 

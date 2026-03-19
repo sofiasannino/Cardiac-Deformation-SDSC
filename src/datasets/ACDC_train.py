@@ -17,7 +17,7 @@ import torchvision.transforms as transforms
 import datasets.transforms as transform
 from datasets.transforms import resample
 
-from data_utils import load_acdc_info
+
 
 
 
@@ -25,16 +25,17 @@ class ACDC_Dataset(Dataset) :
     def __init__(self, infos, cfg_ACDCA_train : DictConfig, is_train=True):
         super().__init__()
         self.target_size = tuple(cfg_ACDCA_train.target_size)      # (H, W, D)
-        self.target_spacing = tuple(cfg_ACDCA_train.target_spacing)  # (sx, sy, sz)
-        self.min_max = tuple(cfg_ACDCA_train.intensity)            
-
+        self.target_spacing = tuple(cfg_ACDCA_train.target_spacing)  # (sx, sy, sz)           
+        self.crop_length = cfg_ACDCA_train.n_frame # Tmax 
         self.train_dict = infos["train"]
         self.test_dict = infos["test"]
         self.all_dict = self.preprocess(is_train)
         self.file_list = list(self.all_dict.keys())
         self.transform = transforms.Compose([
                                 transform.ToTensorVideo(),
-                                transform.CenterCropVideo((self.target_size[0], self.target_size[1])),]) 
+                                transform.CenterCropVideo((self.target_size[0], self.target_size[1])),
+                                transform.NormalizeVideo()
+                                ]) 
 
     def __len__(self):
         return len(self.file_list)
@@ -46,12 +47,25 @@ class ACDC_Dataset(Dataset) :
         data_path = os.path.join(patient_dir, f"patient{pid}_4d.nii.gz")
         data=sitk.ReadImage(data_path)  # [T, D, H, W]
        
-        # resample to target spacing 
+        ### Resample to target spacing 
         current_video = resample(data, self.target_spacing) # [T, D, H, W]
         length, depth, height, width = current_video.shape
 
-        # crop/pad to target size  
+        ### Crop/pad to target size and normalize to [0,1] 
 
+            # time cropping
+        # ES_index = case["ES"]
+        # current_video = transform.ResizedVideo( cfg_ACDCA_train.n_frames,  ES_index, cfg_ACDCA_train.interpolation_mode)
+        if length < self.crop_length:
+            comp_length = self.crop_length - length
+            comp_frames = np.flip(current_video[-1-comp_length:-1, ...], axis=0)
+            current_video = np.concatenate((current_video, comp_frames), axis=0)
+        
+        elif length > self.crop_length:
+            start_idx = random.randint(0, length-self.crop_length-1)
+            current_video = current_video[start_idx:start_idx+self.crop_length, ...] # shape [T=n_frame, D, H, W]
+
+            # depth cropping
         if depth >= self.target_size[-1]:
             sd = int((depth - self.target_size[-1]) / 2)
             current_video = current_video[:, sd:sd + self.target_size[-1], ...]
@@ -61,13 +75,9 @@ class ACDC_Dataset(Dataset) :
             current_video_[:, sd:sd + depth, :, :] = current_video
             current_video = current_video_
 
-        current_video = self.transform(current_video) # [T, D, H, W]
+            #  apply transforms 
+        current_video = self.transform(current_video) # [T=n_frame, D, H, W]
 
-        # normalize to [0,1] 
-
-        current_video = current_video - current_video.min()
-        current_video = current_video / current_video.std()
-        current_video = current_video / current_video.max()
 
         return current_video
     
@@ -87,20 +97,7 @@ class ACDC_Dataset(Dataset) :
     def get_pid(self, index) :
         case = self.all_dict[self.file_list[index]] 
         return case["patient_id"]
-    '''
-    def get_ES(self, index) :
-        
-       # get ES time frame for evaluation
-         
-        case = self.all_dict[self.file_list[index]]
-        patient_dir = case["patient_dir"]
-        info_path = os.path.join(patient_dir, f"Info.cfg")
-        for line in Path(info_path).read_text().splitlines():
-            k, v = line.split(":", 1)
-            if k.strip() == "ES" : 
-                return int(v.strip())
-        raise KeyError(f"ES not found in {info_path}")
-    '''
+   
                  
 
 

@@ -95,6 +95,35 @@ def crop(clip, i, j, h, w):
     assert len(clip.size()) == 4, "clip should be a 4D tensor"
     return clip[..., i:i + h, j:j + w]
 
+def resize(clip, target_size, interpolation_mode): 
+    """
+    Args: 
+        clip (torch.tensor): Video to be cropped in time through interpolation, restricted between ED and ES. Size is (T, D, H, W)
+    Return:
+        clipe (torch.tensor): Video cropped in time through interpolation. Size is (T', D, H, W) 
+    """
+    shape = tuple((target_size, clip.shape[1], clip.shape[2], clip.shape[3]))
+    new_clip = torch.zeros(shape, dtype= clip.dtype, device = clip.device) 
+     
+    new_grid = np.linspace(0, clip.shape[0]-1, target_size) # choosing target_zize number of points
+
+    # Interpolating with Taylor using the new grid and keeping ED/ES at beginning and end  
+    for i in np.arange(target_size) : 
+        m = new_grid[i]
+        i_prev = i_prox= 0 
+           
+        if float(m).is_integer() :
+                new_clip[i, ...] = clip[int(m), ...]
+        else :  
+            i_prox = int(np.ceil(m))
+            i_prev = int(np.floor(m))
+                
+            # approximation using taylor, approximating the derivative with CD
+            new_clip[i, ...] = clip[i_prev, ...] + (new_grid[i] - i_prev) * ((clip[i_prox, ...] - clip[i_prev, ...])/(i_prox - i_prev))
+
+        
+    return new_clip   #[Tmax, D, H, W]
+
     
 class ToTensorVideo(object):
     """
@@ -123,6 +152,48 @@ class CenterCropVideo(object):
 
     def __call__(self, clip):
         return center_crop(clip, self.size)
+    
+
+class ResizedVideo(object):
+    def __init__(self, size, ES_index, interpolation_mode="bilinear"):
+       
+        self.size = size
+        self.ES_index = ES_index
+       
+        self.interpolation_mode = interpolation_mode
+
+    def __call__(self, clip):
+        """
+        Args:
+            clip (torch.tensor): Video clip to be resized in time. Size is (C, T, H, W)
+        Returns:
+            torch.tensor: time-resized video clip.
+                size is ( T',D', H', W') according to size and containing just the cycle ED-ES
+        """
+        clip = clip[0:self.ES_index, ...]
+        return resize(clip, self.size, self.interpolation_mode)
+    
+
+class NormalizeVideo(object):
+    """
+    Normalize the video clip to [0,1]
+   
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, clip):
+        """
+        Args:
+            clip (torch.tensor): video clip to be normalized. Size is (T, D, H, W)
+        """
+        clip = clip - clip.min()
+        clip = clip/ clip.std()
+        clip = clip / clip.max()
+        return clip 
+
+          
 
 
 
