@@ -7,3 +7,5 @@ seed : 21
 train_ratio : 0.9
 interpolation_mode : 'bicubic'
 n_frames : 12 # Tmax 
+factor : [-10,10] # Random rotation angle 
+p : 0.5 # probability of rotation 

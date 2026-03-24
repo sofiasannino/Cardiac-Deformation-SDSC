@@ -26,7 +26,9 @@ class ACDC_Dataset(Dataset) :
         super().__init__()
         self.target_size = tuple(cfg_ACDCA_train.target_size)      # (H, W, D)
         self.target_spacing = tuple(cfg_ACDCA_train.target_spacing)  # (sx, sy, sz)           
-        self.crop_length = cfg_ACDCA_train.n_frame # Tmax 
+        self.crop_length = cfg_ACDCA_train.n_frame # Tmax
+        self.factor = cfg_ACDCA_train.factor
+        self.p = cfg_ACDCA_train.p 
         self.train_dict = infos["train"]
         self.test_dict = infos["test"]
         self.all_dict = self.preprocess(is_train)
@@ -34,7 +36,8 @@ class ACDC_Dataset(Dataset) :
         self.transform = transforms.Compose([
                                 transform.ToTensorVideo(),
                                 transform.CenterCropVideo((self.target_size[0], self.target_size[1])),
-                                transform.NormalizeVideo()
+                                transform.NormalizeVideo(),
+                                transform.Rotate(self.factor, self.p)
                                 ]) 
 
     def __len__(self):

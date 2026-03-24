@@ -2,6 +2,10 @@ import torch
 import SimpleITK as sitk
 import numpy as np
 import numbers
+import random 
+
+
+import torchvision
 
 
 
@@ -95,35 +99,53 @@ def crop(clip, i, j, h, w):
     assert len(clip.size()) == 4, "clip should be a 4D tensor"
     return clip[..., i:i + h, j:j + w]
 
-def resize(clip, target_size, interpolation_mode): 
+def resize(clip, target_size, ES_index):
     """
-    Args: 
-        clip (torch.tensor): Video to be cropped in time through interpolation, restricted between ED and ES. Size is (T, D, H, W)
+    Args:
+        clip (torch.Tensor): video of shape (T, D, H, W)
     Return:
-        clipe (torch.tensor): Video cropped in time through interpolation. Size is (T', D, H, W) 
+        new_clip (torch.Tensor): resized video of shape (T', D, H, W)
     """
-    shape = tuple((target_size, clip.shape[1], clip.shape[2], clip.shape[3]))
-    new_clip = torch.zeros(shape, dtype= clip.dtype, device = clip.device) 
-     
-    new_grid = np.linspace(0, clip.shape[0]-1, target_size) # choosing target_zize number of points
+    T, D, H, W = clip.shape
 
-    # Interpolating with Taylor using the new grid and keeping ED/ES at beginning and end  
-    for i in np.arange(target_size) : 
-        m = new_grid[i]
-        i_prev = i_prox= 0 
-           
-        if float(m).is_integer() :
+    if T == 1:
+        return clip.repeat(target_size, 1, 1, 1)
+
+    new_ES_index = int(round((target_size - 1) * ES_index / (T - 1)))
+    new_clip = torch.zeros((target_size, D, H, W), dtype=clip.dtype, device=clip.device)
+
+    # left part: before ES
+    if new_ES_index > 0:
+        new_grid_1 = np.linspace(0, ES_index - 1, new_ES_index)
+        for i in range(new_ES_index):
+            m = new_grid_1[i]
+            if float(m).is_integer():
                 new_clip[i, ...] = clip[int(m), ...]
-        else :  
-            i_prox = int(np.ceil(m))
-            i_prev = int(np.floor(m))
-                
-            # approximation using taylor, approximating the derivative with CD
-            new_clip[i, ...] = clip[i_prev, ...] + (new_grid[i] - i_prev) * ((clip[i_prox, ...] - clip[i_prev, ...])/(i_prox - i_prev))
+            else:
+                i_prev = int(np.floor(m))
+                i_prox = int(np.ceil(m))
+                alpha = m - i_prev
+                new_clip[i, ...] = clip[i_prev, ...] + alpha * (clip[i_prox, ...] - clip[i_prev, ...])
 
-        
-    return new_clip   #[Tmax, D, H, W]
+    # ES exactly preserved
+    new_clip[new_ES_index, ...] = clip[ES_index, ...]
 
+    # right part: from ES onward
+    right_len = target_size - new_ES_index
+    if right_len > 1:
+        new_grid_2 = np.linspace(ES_index, T - 1, right_len)
+        for j in range(1, right_len):   # start from 1 because j=0 is ES itself
+            m = new_grid_2[j]
+            i = new_ES_index + j
+            if float(m).is_integer():
+                new_clip[i, ...] = clip[int(m), ...]
+            else:
+                i_prev = int(np.floor(m))
+                i_prox = int(np.ceil(m))
+                alpha = m - i_prev
+                new_clip[i, ...] = clip[i_prev, ...] + alpha * (clip[i_prox, ...] - clip[i_prev, ...])
+
+    return new_clip
     
 class ToTensorVideo(object):
     """
@@ -155,12 +177,10 @@ class CenterCropVideo(object):
     
 
 class ResizedVideo(object):
-    def __init__(self, size, ES_index, interpolation_mode="bilinear"):
+    def __init__(self, size, ES_index):
        
         self.size = size
         self.ES_index = ES_index
-       
-        self.interpolation_mode = interpolation_mode
 
     def __call__(self, clip):
         """
@@ -168,10 +188,10 @@ class ResizedVideo(object):
             clip (torch.tensor): Video clip to be resized in time. Size is (C, T, H, W)
         Returns:
             torch.tensor: time-resized video clip.
-                size is ( T',D', H', W') according to size and containing just the cycle ED-ES
+                size is ( T',D, H, W) according to size
         """
-        clip = clip[0:self.ES_index, ...]
-        return resize(clip, self.size, self.interpolation_mode)
+
+        return resize(clip, self.size, self.ES_index)
     
 
 class NormalizeVideo(object):
@@ -192,6 +212,34 @@ class NormalizeVideo(object):
         clip = clip/ clip.std()
         clip = clip / clip.max()
         return clip 
+
+
+
+
+class Rotate(object):
+    """
+    Randomly rotate the whole video by the same angle on the spatial plane (H, W).
+
+    Args:
+        clip (torch.Tensor): Video tensor with shape (T, D, H, W).
+        factor (tuple[float, float]): Min and max rotation angle in degrees.
+        p (float): Probability of applying the rotation.
+    """
+    def __init__(self, factor=[-10, 10], p=0.5):
+        self.factor = factor
+        self.p = p
+
+    def __call__(self, clip):
+        assert _is_tensor_video_clip(clip), "clip should be a 4D torch.tensor"
+
+        if random.random() < self.p:
+            angle = random.uniform(self.factor[0], self.factor[1])
+            clip = torchvision.transforms.functional.rotate(
+                clip,
+                angle,
+                interpolation=torchvision.transforms.functional.InterpolationMode.BILINEAR
+            )
+        return clip
 
           
 
