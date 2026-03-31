@@ -1,0 +1,4 @@
+acdc_training_root: home/renku/work/s3-bucket/ACDC/training # Path to the ACDC training dataset (unzipped)
+out_dataset_root: home/renku/work/Cardiac-Deformation-SDSC/src/datasets # Path to the output dataset root where the converted nnU-Net dataset will be saved
+acdc_info_json: home/renku/work/s3-bucket/ACDC/training/info.json # Path to the ACDC info JSON file
+copy_intermediate_to_imagesTs: False

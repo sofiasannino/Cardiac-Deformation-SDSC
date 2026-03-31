@@ -3,8 +3,6 @@ import SimpleITK as sitk
 import numpy as np
 import numbers
 import random 
-
-
 import torchvision
 
 
