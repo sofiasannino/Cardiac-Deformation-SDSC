@@ -1,14 +1,29 @@
-torch==2.2.0
-torchvision==0.17.0
-torchmetrics
-numpy==1.26.4
-tqdm
-matplotlib
-pandas
-wandb
-comet_ml
-hydra-core
+nnunetv2==2.6.4
+python >=3.10
 
-black
-isort
-pre-commit
+# medical imaging
+
+SimpleITK>=2.2.1
+nibabel
+
+# scientific python
+
+numpy>=1.24
+scipy
+pandas
+scikit-image>=0.19.3
+scikit-learn
+matplotlib
+seaborn
+tqdm
+
+# useful notebook / dev tools
+
+ipykernel
+ipywidgets
+hydra-core
+omegaconf
+hydra-colorlog
+hydra-joblib-launcher
+hydra-submitit-launcher
+
