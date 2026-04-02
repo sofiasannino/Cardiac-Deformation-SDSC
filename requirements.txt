@@ -17,6 +17,10 @@ matplotlib
 seaborn
 tqdm
 
+# DL 
+torch>=2.0.0
+torchvision
+
 # useful notebook / dev tools
 
 ipykernel
