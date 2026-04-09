@@ -158,6 +158,6 @@ def convert_acdc_to_nnunet( acdc_training_root, out_dataset_root, acdc_info_json
         json.dump(dataset_json, f, indent=2)
 
     print(f"Done. Wrote dataset to: {out_dataset_root}")
-    print(f"Training cases: {n_training_cases}")
+    print(f"Training cases: {n_training_cases}") 
 
 

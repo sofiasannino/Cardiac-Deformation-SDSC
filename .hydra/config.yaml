@@ -1,0 +1,4 @@
+input_folder: /home/renku/work/s3-bucket/ACDC
+dataset_id: 27
+task_name: ACDC
+split_seed: 1234
