@@ -221,7 +221,7 @@ def convert_acdc(src_data_folder: str, dataset_id=27):
         num_training_cases=num_training_cases,
     )
 
-@hydra.main(version_base=None, config_path="configs/datasets", config_name="preprocess")
+@hydra.main(version_base=None, config_path="src/configs/datasets", config_name="preprocess")
 def main(cfg: DictConfig) -> None:
     print("Converting...")
 
