@@ -144,6 +144,112 @@ def interpolate_4d_volumes_keep_ed_es(
 
     return interpolated_imgs, 1, new_es0 + 1
 
+import json
+import shutil
+from pathlib import Path
+
+
+def reconfigure_acdc(
+    final_out_dir: Path,
+    test_dir_pp: Path,
+    interp_frames_dir: Path,
+    input_dir: Path,
+    num_patients: int | None = None,
+):
+    """
+    Create a final directory with one folder per patient:
+        patientXXX/
+            frames/
+            labels/
+
+    The sequence is the fullinterpolated cardiac cycle for each patient.
+
+    frames/: full temporal sequence in order
+    labels/: labels in the exact same temporal order
+
+    Rules:
+    - At ED and ES positions in the interpolated timeline:
+        * frame = original ED/ES frame
+        * label = original ED/ES GT
+    - At all other positions:
+        * frame = interpolated frame from interp_frames_dir
+        * label = nnU-Net postprocessed prediction from test_dir_pp
+
+    Expected files:
+    - interp_frames_dir contains:
+        * interpolation_metadata.json
+        * patientXXX_iframeYYYY_0000.nii.gz   (intermediate interpolated frames)
+    - test_dir_pp contains:
+        * patientXXX_iframeYYYY.nii.gz        (predicted labels)
+    - input_dir/training/patientXXX contains:
+        * patientXXX_frameZZ.nii.gz
+        * patientXXX_frameZZ_gt.nii.gz
+    """
+    final_out_dir.mkdir(parents=True, exist_ok=True)
+
+    training_dir = input_dir / "training"
+    if not training_dir.exists():
+        raise FileNotFoundError(f"Training folder not found: {training_dir}")
+
+    metadata_path = interp_frames_dir / "interpolation_metadata.json"
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
+
+    with open(metadata_path, "r") as f:
+        metadata = json.load(f)
+
+    patients_train = sorted([p for p in training_dir.iterdir() if p.is_dir()])
+    if num_patients is not None:
+        patients_train = patients_train[:num_patients]
+
+    for patient_path in patients_train:
+        patient_name = patient_path.name  # e.g. patient001
+
+        if patient_name not in metadata:
+            raise KeyError(f"{patient_name} not found in interpolation metadata")
+
+        patient_meta = metadata[patient_name]
+        # extract metadata
+        original_ed_idx = int(patient_meta["original_ed_index_1based"])
+        original_es_idx = int(patient_meta["original_es_index_1based"])
+        new_ed_idx = int(patient_meta["new_ed_index_1based"])
+        new_es_idx = int(patient_meta["new_es_index_1based"])
+        target_length = int(patient_meta["target_length"])
+
+        # patient folder 
+        patient_dir = final_out_dir / patient_name
+        frames_dir = patient_dir / "frames"
+        labels_dir = patient_dir / "labels"
+        frames_dir.mkdir(parents=True, exist_ok=True)
+        labels_dir.mkdir(parents=True, exist_ok=True)
+
+        for t in range(1, target_length + 1):
+            out_frame = frames_dir / f"{patient_name}_iframe{t:04d}.nii.gz"
+            out_label = labels_dir / f"{patient_name}_iframe{t:04d}.nii.gz"
+
+            if t == new_ed_idx:
+                # Original ED frame and GT
+                frame_src = patient_path / f"{patient_name}_frame{original_ed_idx:02d}.nii.gz"
+                label_src = patient_path / f"{patient_name}_frame{original_ed_idx:02d}_gt.nii.gz"
+
+            elif t == new_es_idx:
+                # Original ES frame and GT
+                frame_src = patient_path / f"{patient_name}_frame{original_es_idx:02d}.nii.gz"
+                label_src = patient_path / f"{patient_name}_frame{original_es_idx:02d}_gt.nii.gz"
+
+            else:
+                # Interpolated frame + predicted label
+                frame_src = interp_frames_dir / f"{patient_name}_iframe{t:04d}_0000.nii.gz"
+                label_src = test_dir_pp / f"{patient_name}_iframe{t:04d}.nii.gz"
+
+            if not frame_src.exists():
+                raise FileNotFoundError(f"Missing frame source: {frame_src}")
+            if not label_src.exists():
+                raise FileNotFoundError(f"Missing label source: {label_src}")
+
+            shutil.copy(frame_src, out_frame)
+            shutil.copy(label_src, out_label)
+
 
 def create_test_files(
     src_data_folder: Path,
