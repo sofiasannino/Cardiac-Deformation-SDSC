@@ -1,9 +1,5 @@
-acdc_training_root: /home/renku/work/s3-bucket/ACDC/training # Path to the ACDC training dataset (unzipped)
-out_dataset_root: /home/renku/work/nnUNet_raw # Path to the output dataset root where the converted nnU-Net dataset will be saved
-acdc_info_json: /home/renku/work/s3-bucket/ACDC/training/ACDC_info.json # Path to the ACDC info JSON file
-copy_intermediate_to_imagesTs: False
-set_up_dataset : True
-
-hydra:
-  run:
-    dir: outputs_pretrain/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+acdc_training_root: /home/renku/work/s3-bucket/ACDC
+test_dir: /home/renku/work/test_dir_interpolated_frames
+target_length: 20
+clear_inference_input_dir: true
+save_interpolation_metadata: true
