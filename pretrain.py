@@ -1,5 +1,6 @@
 import hydra
 from omegaconf import DictConfig
+import subprocess
 
 from pathlib import Path
 from typing import List, Tuple, Dict
@@ -233,7 +234,7 @@ def create_test_files(
     print(f"Created nnU-Net inference inputs in: {test_dir}")
 
 
-@hydra.main(version_base=None, config_path="configs/model", config_name="pretrain")
+@hydra.main(version_base=None, config_path="src/configs/model", config_name="pretrain")
 def main(cfg: DictConfig):
     """
     Expected config fields:
@@ -242,14 +243,31 @@ def main(cfg: DictConfig):
       cfg.target_length
       cfg.clear_inference_input_dir   (optional, bool)
       cfg.save_interpolation_metadata (optional, bool)
+      cfg.script.path 
+      cfg.set_test (bool)
     """
-    create_test_files(
+
+    # consider all the 4d volumes in the training samples, and for each volume extract the intermediated frames (no ED/ES)
+    # interpolate intermediate frames so that for each patient there is a fixed number of frames 
+    # adapt these frames as test case according to inference U-Net format
+    if(cfg.set_test) : 
+        create_test_files(
         src_data_folder=Path(cfg.acdc_training_root),
         test_dir=Path(cfg.test_dir),
         target_length=int(cfg.target_length),
         clear_output_dir=bool(getattr(cfg, "clear_inference_input_dir", True)),
         save_metadata=bool(getattr(cfg, "save_interpolation_metadata", True)),
     )
+
+    # run inference on intermediate frames 
+
+    script_path = Path(cfg.script.path).resolve()
+
+    subprocess.run(
+        ["bash", str(script_path)],
+        check=True
+    )
+
 
 
 if __name__ == "__main__":
