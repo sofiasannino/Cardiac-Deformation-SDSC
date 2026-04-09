@@ -374,6 +374,9 @@ def main(cfg: DictConfig):
         check=True
     )
 
+    # reconfigure dataset for training 
+
+
 
 
 if __name__ == "__main__":
