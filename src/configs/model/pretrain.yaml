@@ -1,8 +1,12 @@
-acdc_training_root: /home/renku/work/s3-bucket/ACDC
-test_dir: /home/renku/work/test_dir_interpolated_frames
-target_length: 20
+acdc_training_root: /home/renku/work/s3-bucket/ACDC # original ACDC directory
+num_patients : 100
+test_dir: /home/renku/work/test_dir_interpolated_frames # directory to put the interpolated frames from 4d volume
+test_dir_pp : /home/renku/work/test_dir_interpolated_frames_out_pp # directory with corresponding predicting labels 
+target_length: 20 # max number of frames per patient
 clear_inference_input_dir: true
 save_interpolation_metadata: true
 script:
-  path: /home/renku/work/Cardiac-Deformation-SDSC/run_inference_u_net.sh
+  path: /home/renku/work/Cardiac-Deformation-SDSC/run_inference_u_net.sh # bash to run inference with unet
 set_test : false
+
+final_dataset_directory : /home/renku/work/cardiac_deformation_final_dataset # final cardiac deformation dataset directory

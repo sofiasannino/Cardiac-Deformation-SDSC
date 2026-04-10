@@ -144,11 +144,6 @@ def interpolate_4d_volumes_keep_ed_es(
 
     return interpolated_imgs, 1, new_es0 + 1
 
-import json
-import shutil
-from pathlib import Path
-
-
 def reconfigure_acdc(
     final_out_dir: Path,
     test_dir_pp: Path,
@@ -162,28 +157,10 @@ def reconfigure_acdc(
             frames/
             labels/
 
-    The sequence is the fullinterpolated cardiac cycle for each patient.
+    The sequence is the full interpolated cardiac cycle for each patient.
 
     frames/: full temporal sequence in order
     labels/: labels in the exact same temporal order
-
-    Rules:
-    - At ED and ES positions in the interpolated timeline:
-        * frame = original ED/ES frame
-        * label = original ED/ES GT
-    - At all other positions:
-        * frame = interpolated frame from interp_frames_dir
-        * label = nnU-Net postprocessed prediction from test_dir_pp
-
-    Expected files:
-    - interp_frames_dir contains:
-        * interpolation_metadata.json
-        * patientXXX_iframeYYYY_0000.nii.gz   (intermediate interpolated frames)
-    - test_dir_pp contains:
-        * patientXXX_iframeYYYY.nii.gz        (predicted labels)
-    - input_dir/training/patientXXX contains:
-        * patientXXX_frameZZ.nii.gz
-        * patientXXX_frameZZ_gt.nii.gz
     """
     final_out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -209,14 +186,16 @@ def reconfigure_acdc(
             raise KeyError(f"{patient_name} not found in interpolation metadata")
 
         patient_meta = metadata[patient_name]
-        # extract metadata
+
         original_ed_idx = int(patient_meta["original_ed_index_1based"])
         original_es_idx = int(patient_meta["original_es_index_1based"])
         new_ed_idx = int(patient_meta["new_ed_index_1based"])
         new_es_idx = int(patient_meta["new_es_index_1based"])
         target_length = int(patient_meta["target_length"])
 
-        # patient folder 
+        # temporary workaround for patient090
+        effective_original_ed_idx = 4 if patient_name == "patient090" else original_ed_idx
+
         patient_dir = final_out_dir / patient_name
         frames_dir = patient_dir / "frames"
         labels_dir = patient_dir / "labels"
@@ -228,17 +207,14 @@ def reconfigure_acdc(
             out_label = labels_dir / f"{patient_name}_iframe{t:04d}.nii.gz"
 
             if t == new_ed_idx:
-                # Original ED frame and GT
-                frame_src = patient_path / f"{patient_name}_frame{original_ed_idx:02d}.nii.gz"
-                label_src = patient_path / f"{patient_name}_frame{original_ed_idx:02d}_gt.nii.gz"
+                frame_src = patient_path / f"{patient_name}_frame{effective_original_ed_idx:02d}.nii.gz"
+                label_src = patient_path / f"{patient_name}_frame{effective_original_ed_idx:02d}_gt.nii.gz"
 
             elif t == new_es_idx:
-                # Original ES frame and GT
                 frame_src = patient_path / f"{patient_name}_frame{original_es_idx:02d}.nii.gz"
                 label_src = patient_path / f"{patient_name}_frame{original_es_idx:02d}_gt.nii.gz"
 
             else:
-                # Interpolated frame + predicted label
                 frame_src = interp_frames_dir / f"{patient_name}_iframe{t:04d}_0000.nii.gz"
                 label_src = test_dir_pp / f"{patient_name}_iframe{t:04d}.nii.gz"
 
@@ -367,14 +343,15 @@ def main(cfg: DictConfig):
 
     # run inference on intermediate frames 
 
-    script_path = Path(cfg.script.path).resolve()
+    #script_path = Path(cfg.script.path).resolve()
 
-    subprocess.run(
-        ["bash", str(script_path)],
-        check=True
-    )
+    #subprocess.run(
+    #    ["bash", str(script_path)],
+    #    check=True
+    #)
 
-    # reconfigure dataset for training 
+    # reconfigure dataset for training
+    reconfigure_acdc(Path(cfg.final_dataset_directory), Path(cfg.test_dir_pp), Path(cfg.test_dir), Path(cfg.acdc_training_root), int(cfg.num_patients)) 
 
 
 
