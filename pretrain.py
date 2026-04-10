@@ -226,7 +226,6 @@ def reconfigure_acdc(
             shutil.copy(frame_src, out_frame)
             shutil.copy(label_src, out_label)
 
-
 def create_test_files(
     src_data_folder: Path,
     test_dir: Path,
