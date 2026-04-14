@@ -1,2 +1,2 @@
 defaults: 
-  - controlpoints: controlpoints
+  - model: controlpoints
