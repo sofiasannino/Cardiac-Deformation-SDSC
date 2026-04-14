@@ -1,0 +1,1 @@
+labels : [1, 2, 3] # list of labels to sample control points from, excluding background (0)

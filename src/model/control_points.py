@@ -22,7 +22,7 @@ class ControlPoints:
     def InitializeFromMask(self, mask : sitk.Image, num_points_per_label: int):
         """Initialize control points from a segmentation mask. For each label, sample num_points_per_label points."""
         for label in self.labels:
-            
+
             # exctract binary mask for the current label
             class_mask = sitk.Cast(mask == label, sitk.sitkUInt8)
             # compute all discontinuous regions
@@ -35,7 +35,8 @@ class ControlPoints:
             largest_cc = None
             for lab in shape_stats.GetLabels():
                 num_pixels = shape_stats.GetNumberOfPixels(lab)
-                print(shape_stats.GetEquivalentSphericalDiameter(lab))
+                print(f"sphere diameter for label {lab}: {shape_stats.GetEquivalentSphericalDiameter(lab)}") # DEBUG
+                print(f"number of indexes for label {lab}:{len(shape_stats.GetIndexes(lab)) // 3}") # DEBUG
                 if num_pixels > max_num_pixels:
                     max_num_pixels = num_pixels
                     largest_cc = sitk.Cast(cc == lab, sitk.sitkUInt8)
@@ -45,7 +46,7 @@ class ControlPoints:
                 shape_stats.Execute(largest_cc)
 
                 # compute the centroid of the largest connected component
-                centroid = shape_stats.GetCentroid(1)
+                centroid = np.array(shape_stats.GetCentroid(1))
                 flat_idx = shape_stats.GetIndexes(1)
                 physical_points = []
 
@@ -59,7 +60,11 @@ class ControlPoints:
                 physical_points.sort(key=lambda p: np.linalg.norm(np.array(p) - np.array(centroid)))
 
                 # keep farthest points from the centroid to capture the shape of the structure
-                selected_points = physical_points[-num_points_per_label:]
+                if len(physical_points) < num_points_per_label:
+                    print(f"Warning: label {label} has only {len(physical_points)} points, less than the requested {num_points_per_label}. Keeping all points.")
+                    selected_points = physical_points
+                else:
+                    selected_points = physical_points[-num_points_per_label:]
 
             self.points[label] = selected_points
 
@@ -95,12 +100,7 @@ class ControlPoints:
 
 
         # initialize transform using the center of mass of the masks
-        initial_transform = sitk.CenteredTransformInitializer(
-        fixed_reg 
-        moving_reg, 
-        sitk.Euler3DTransform(), 
-        sitk.CenteredTransformInitializerFilter.GEOMETRY
-    )
+        initial_transform = sitk.CenteredTransformInitializer(fixed_reg, moving_reg, sitk.Euler3DTransform(), sitk.CenteredTransformInitializerFilter.GEOMETRY)
 
         # Registration Framework
         

@@ -1,5 +1,5 @@
-from src.model.baseline_model import BaselineModel
+from src.model.control_points import ControlPoints
 
 __all__ = [
-    "BaselineModel",
+    "ControlPoints",
 ]
