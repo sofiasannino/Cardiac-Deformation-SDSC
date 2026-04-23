@@ -109,7 +109,7 @@ class ControlPoints:
 
 
         # initialize transform using the center of mass of the masks
-        initial_transform = sitk.CenteredTransformInitializer(fixed_reg, moving_reg, sitk.Euler3DTransform(), sitk.CenteredTransformInitializerFilter.GEOMETRY)
+        initial_transform = sitk.CenteredTransformInitializer(fixed_reg, moving_reg, sitk.Euler3DTransform(), sitk.CenteredTransformInitializerFilter.MOMENTS)
 
         # Registration Framework
         
