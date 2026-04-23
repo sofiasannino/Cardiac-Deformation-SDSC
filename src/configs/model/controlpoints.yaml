@@ -1,3 +1,5 @@
 labels : [1, 2, 3] # list of labels to sample control points from, excluding background (0)
-theta_num : 10 # number of points to sample along the polar angle (theta) in spherical coordinates
+theta_num : 50 # number of points to sample along the polar angle (theta) in spherical coordinates
 phi_num : 100 # number of points to sample along the azimuthal angle (phi) in spherical coordinates
+iter : 1000 # max # of iterations for ExctractPoints function
+step : 0.1 # step to go in centroid  direction 

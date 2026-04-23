@@ -5,84 +5,137 @@ from pathlib import Path
 from typing import List, Tuple, Dict
 import hydra
 from omegaconf import DictConfig
+import warnings
 
-
+Point3D = Tuple[float, float, float]
+Direction = Tuple[float, float, float]
 
 
 class ControlPoints:
-    def __init__(self,  cfg: DictConfig):
-        self.labels = cfg.labels # list of labels to sample control points from --- > convert later to read from json
-        self.points: Dict[int, List[Tuple[float, float, float]]] = {}
+    def __init__(self, cfg: DictConfig):
+        self.labels = cfg.labels
         self.theta_num = cfg.theta_num
         self.phi_num = cfg.phi_num
-        for l in self.labels:
-            self.points[l] = []
+        self.max_iter = cfg.iter
+        self.step = cfg.step 
 
-    def GetPoints(self, label: int) -> List[Tuple[float, float, float]]:
-        """Get control points for a given label."""
+        self.directions: List[Direction] = self.GetSphericalDirections()
+
+        # points[label] = [(point, direction), ...]
+        self.points: Dict[int, List[Tuple[Point3D, Direction]]] = {
+            label: [] for label in self.labels
+        }
+
+    def GetPoints(self, label: int) -> List[Tuple[Point3D, Direction]]:
+        """Return list of (point, direction) for a given label"""
         return self.points[label]
-    
-    def TransformPointsBack(self, points: List[Tuple[float, float, float]], transform: sitk.Transform) -> List[Tuple[float, float, float]]:
-        """Apply a SimpleITK transform to a list of points.""" # CHECK  
-        transformed_points = []
-        for p in points:
+
+    def TransformPointsBack(
+        self,
+        points_with_dirs: List[Tuple[Point3D, Direction]],
+        transform: sitk.Transform
+    ) -> List[Tuple[Point3D, Direction]]:
+        """Apply a SimpleITK transform to the points""" # CHANGE THIS 
+        transformed = []
+        for p, d in points_with_dirs:
             transformed_p = transform.TransformPoint(p)
-            transformed_points.append(transformed_p)
-        return transformed_points
-    
-    def GetSphericalDirections(self):
-        """Get spherical directions"""
-        theta = np.linspace(0, np.pi, num=self.theta_num)  # polar angle
-        phi = np.linspace(0, 2 * np.pi, num=self.phi_num)  # azimuthal angle
+            transformed.append((transformed_p, d))
+        return transformed
+
+    def GetSphericalDirections(self) -> List[Direction]:
+        """Sample directions on the sphere"""
+        theta = np.linspace(0, np.pi, num=self.theta_num)
+        phi = np.linspace(0, 2 * np.pi, num=self.phi_num, endpoint=False)
+
         directions = []
         for t in theta:
             for p in phi:
                 x = np.sin(t) * np.cos(p)
                 y = np.sin(t) * np.sin(p)
                 z = np.cos(t)
-                directions.append((x, y, z))
+                directions.append((float(x), float(y), float(z)))
         return directions
 
-    def ExtractPoints(self, mask : sitk.Image, num_points_per_label: int):
-        """Extract control points from a segmentation mask using spherical coordinates. For each label, sample num_points_per_label points."""
-        for label in self.labels:
+    def ExtractPoints(self, mask: sitk.Image):
+        """
+        For each label:
+        - compute centroid from the largest connected component
+        - cast rays along spherical directions
+        - find the first point entering the region of that label
+        - store as (point, direction) inside points[label]
 
-            # exctract binary mask for the current label
+        Output format:
+        self.points[label] = [(point, direction), ...]
+        """
+
+        # reset dictionary with the new format
+        self.points = {label: [] for label in self.labels}
+
+        for label in self.labels:
+            # full binary mask for the current label
             class_mask = sitk.Cast(mask == label, sitk.sitkUInt8)
-            # compute all discontinuous regions
-            cc = sitk.ConnectedComponent(class_mask)
-            shape_stats = sitk.LabelShapeStatisticsImageFilter()
-            shape_stats.Execute(cc)
-            
-            # find biggest connected component of that label 
-            largest_cc = None
+
+            # connected components
             cc = sitk.ConnectedComponent(class_mask)
             relabeled = sitk.RelabelComponent(cc)
-            largest_cc = relabeled == 1
+            largest_cc = sitk.Cast(relabeled == 1, sitk.sitkUInt8)
 
-            # sample points from the largest connected component round the centroid of the component
-            if largest_cc is not None:
-                shape_stats.Execute(largest_cc)
-
-                # compute the centroid of the largest connected component
-                centroid = np.array(shape_stats.GetCentroid(1))
+            shape_stats = sitk.LabelShapeStatisticsImageFilter()
+            shape_stats.Execute(largest_cc)
 
 
-                # get shperical directions along which to sample points
-                directions = self.GetSphericalDirections()
+            # centroid of the largest connected component
+            centroid = np.array(shape_stats.GetCentroid(1), dtype=float)
 
-                for d in directions:
-                    # scale the direction by the radius of the sphere with the same volume as the largest connected component
-                    point = centroid + np.array(d) * shape_stats.GetEquivalentSphericalDiameter(1) / 2 
-                    point_idx = largest_cc.TransformPhysicalPointToIndex(point)
+            size = class_mask.GetSize()
 
-                     # if the point is outside the structure, move it towards the centroid until it is inside the structure
-                    while largest_cc.GetPixel(point_idx) == 0:
-                        point = point - np.array(d) * 0.1 # move the point towards the centroid by a small step
-                        point_idx = largest_cc.TransformPhysicalPointToIndex(point)
+            for d in self.directions:
+                direction = np.array(d, dtype=float)
 
-                    # set the point as a control point for the current label
-                    self.points[label].append(tuple(point)) 
+                # starting rule as your previous working version
+                point = centroid + direction * 2 * shape_stats.GetEquivalentSphericalRadius(1)
+
+                found = False
+                for _ in range(self.max_iter):
+                    point_idx = tuple(int(x) for x in class_mask.TransformPhysicalPointToIndex(tuple(point)))
+
+                    inside_image = all(0 <= point_idx[i] < size[i] for i in range(len(size)))
+
+                # check against the FULL label mask
+                    if inside_image and class_mask.GetPixel(point_idx) != 0:
+                        self.points[label].append((tuple(float(x) for x in point), tuple(float(x) for x in direction),))
+                        found = True
+                        break
+
+                    # update rule 
+                    point = point - direction * self.step
+
+            if not found:
+                warnings.warn(f"Reached maximum number of iterations for label {label} in direction {d}",RuntimeWarning,)
+                # contour of the FULL label mask, for fallback
+            contour = sitk.BinaryContour(class_mask)
+            contour_arr = sitk.GetArrayFromImage(contour)   # [z, y, x]
+            contour_idx_zyx = np.argwhere(contour_arr > 0)
+            best_point = None
+            best_score = -np.inf
+
+            for idx_zyx in contour_idx_zyx:
+                z, y, x = idx_zyx
+                idx_xyz = (int(x), int(y), int(z))
+
+                p_phys = np.array(class_mask.TransformIndexToPhysicalPoint(idx_xyz),dtype=float)
+
+                score = np.dot(p_phys - centroid, direction)
+
+                if score > best_score:
+                    best_score = score
+                    best_point = p_phys
+
+            if best_point is not None:
+                self.points[label].append((tuple(float(x) for x in best_point),tuple(float(x) for x in direction),))
+                warnings.warn(f"Fallback used for label {label} in direction {d}",RuntimeWarning)
+            else:
+                warnings.warn(f"Failed to find point for label {label} in direction {d}",RuntimeWarning)
     
     def InitializeFromMask(self, mask : sitk.Image, num_points_per_label: int):
         """Initialize control points from a segmentation mask. For each label, sample num_points_per_label points."""

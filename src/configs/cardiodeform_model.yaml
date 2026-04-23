@@ -1,2 +1,9 @@
 defaults: 
   - model: controlpoints
+
+hydra:
+  job:
+    name: control_points_test 
+    chdir: true
+  run:
+    dir: /home/renku/work/OUTPUTS/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
