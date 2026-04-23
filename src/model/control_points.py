@@ -16,9 +16,18 @@ class ControlPoints:
         for l in self.labels:
             self.points[l] = []
 
+    def GetPoints(self, label: int) -> List[Tuple[float, float, float]]:
+        """Get control points for a given label."""
+        return self.points[label]
     
-        
-
+    def TransformPointsBack(self, points: List[Tuple[float, float, float]], transform: sitk.Transform) -> List[Tuple[float, float, float]]:
+        """Apply a SimpleITK transform to a list of points.""" # CHECK  
+        transformed_points = []
+        for p in points:
+            transformed_p = transform.TransformPoint(p)
+            transformed_points.append(transformed_p)
+        return transformed_points
+    
     def InitializeFromMask(self, mask : sitk.Image, num_points_per_label: int):
         """Initialize control points from a segmentation mask. For each label, sample num_points_per_label points."""
         for label in self.labels:
@@ -35,7 +44,7 @@ class ControlPoints:
             largest_cc = None
             for lab in shape_stats.GetLabels():
                 num_pixels = shape_stats.GetNumberOfPixels(lab)
-                print(f"sphere diameter for label {lab}: {2.0*shape_stats.GetEquivalentSphericalRadius(lab)}") # DEBUG
+                print(f"sphere diameter for label {lab}: {shape_stats.GetEquivalentSphericalDiameter(lab)}") # DEBUG
                 print(f"number of indexes for label {lab}:{len(shape_stats.GetIndexes(lab)) // 3}") # DEBUG
                 if num_pixels > max_num_pixels:
                     max_num_pixels = num_pixels
