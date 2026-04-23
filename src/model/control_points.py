@@ -13,6 +13,8 @@ class ControlPoints:
     def __init__(self,  cfg: DictConfig):
         self.labels = cfg.labels # list of labels to sample control points from --- > convert later to read from json
         self.points: Dict[int, List[Tuple[float, float, float]]] = {}
+        self.theta_num = cfg.theta_num
+        self.phi_num = cfg.phi_num
         for l in self.labels:
             self.points[l] = []
 
@@ -27,6 +29,60 @@ class ControlPoints:
             transformed_p = transform.TransformPoint(p)
             transformed_points.append(transformed_p)
         return transformed_points
+    
+    def GetSphericalDirections(self):
+        """Get spherical directions"""
+        theta = np.linspace(0, np.pi, num=self.theta_num)  # polar angle
+        phi = np.linspace(0, 2 * np.pi, num=self.phi_num)  # azimuthal angle
+        directions = []
+        for t in theta:
+            for p in phi:
+                x = np.sin(t) * np.cos(p)
+                y = np.sin(t) * np.sin(p)
+                z = np.cos(t)
+                directions.append((x, y, z))
+        return directions
+
+    def ExtractPoints(self, mask : sitk.Image, num_points_per_label: int):
+        """Extract control points from a segmentation mask using spherical coordinates. For each label, sample num_points_per_label points."""
+        for label in self.labels:
+
+            # exctract binary mask for the current label
+            class_mask = sitk.Cast(mask == label, sitk.sitkUInt8)
+            # compute all discontinuous regions
+            cc = sitk.ConnectedComponent(class_mask)
+            shape_stats = sitk.LabelShapeStatisticsImageFilter()
+            shape_stats.Execute(cc)
+            
+            # find biggest connected component of that label 
+            largest_cc = None
+            cc = sitk.ConnectedComponent(class_mask)
+            relabeled = sitk.RelabelComponent(cc)
+            largest_cc = relabeled == 1
+
+            # sample points from the largest connected component round the centroid of the component
+            if largest_cc is not None:
+                shape_stats.Execute(largest_cc)
+
+                # compute the centroid of the largest connected component
+                centroid = np.array(shape_stats.GetCentroid(1))
+
+
+                # get shperical directions along which to sample points
+                directions = self.GetSphericalDirections()
+
+                for d in directions:
+                    # scale the direction by the radius of the sphere with the same volume as the largest connected component
+                    point = centroid + np.array(d) * shape_stats.GetEquivalentSphericalDiameter(1) / 2 
+                    point_idx = largest_cc.TransformPhysicalPointToIndex(point)
+
+                     # if the point is outside the structure, move it towards the centroid until it is inside the structure
+                    while largest_cc.GetPixel(point_idx) == 0:
+                        point = point - np.array(d) * 0.1 # move the point towards the centroid by a small step
+                        point_idx = largest_cc.TransformPhysicalPointToIndex(point)
+
+                    # set the point as a control point for the current label
+                    self.points[label].append(tuple(point)) 
     
     def InitializeFromMask(self, mask : sitk.Image, num_points_per_label: int):
         """Initialize control points from a segmentation mask. For each label, sample num_points_per_label points."""
