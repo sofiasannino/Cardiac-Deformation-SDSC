@@ -37,7 +37,7 @@ def main(config):
     #    device = config.trainer.device
 
     control_points = ControlPoints(config.model)
-    toy_mask = sitk.ReadImage("/home/renku/work/cardiac_deformation_final_dataset/patient001/labels/patient001_iframe0007.nii.gz", sitk.sitkUInt8)
+    toy_mask = sitk.ReadImage("/home/renku/work/s3-bucket/ACDC/training/patient001/patient001_frame01_gt.nii.gz", sitk.sitkUInt8)
     control_points.InitializeFromMask(toy_mask, num_points_per_label=2000)
     test_control_points_2d_3d(control_points, toy_mask)
 
