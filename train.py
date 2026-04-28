@@ -1,4 +1,5 @@
 import warnings
+import tqdm
 
 import hydra
 import torch
@@ -27,6 +28,20 @@ def main(config):
     toy_mask = sitk.ReadImage("/home/renku/work/s3-bucket/ACDC/training/patient001/patient001_frame01_gt.nii.gz", sitk.sitkUInt8)
     control_points.ExtractPoints(toy_mask)
     test_control_points_2d_3d(control_points, toy_mask)
+    points_1 = control_points.GetPoints(1)
+    pts = [p for p, d in points_1]
+    print("total 1:", len(pts))
+    print("unique 1:", len(set(pts)))
+
+    points_2 = control_points.GetPoints(2)
+    pts = [p for p, d in points_2]
+    print("total 2:", len(pts))
+    print("unique 2:", len(set(pts)))
+
+    points_3 = control_points.GetPoints(3)
+    pts = [p for p, d in points_3]
+    print("total 3:", len(pts))
+    print("unique 3:", len(set(pts)))
 
     
 
