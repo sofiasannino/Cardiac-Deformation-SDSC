@@ -1,14 +1,15 @@
 labels : [1, 2, 3] # list of labels to sample control points from, excluding background (0)
-theta_num : 30 # number of points to sample along the polar angle (theta) in spherical coordinates
-phi_num : 100 # number of points to sample along the azimuthal angle (phi) in spherical coordinates
-iter : 5000 # max # of iterations for ExctractPoints function
+theta_num : 100 # number of points to sample along the polar angle (theta) in spherical coordinates
+phi_num : 10 # number of points to sample along the azimuthal angle (phi) in spherical coordinates
+iter : 1000 # max # of iterations for ExctractPoints function
+extra_iter : 100 
 step : 0.5 # step to go in centroid  direction
 data_path : "/home/renku/work/cardiac_deformation_final_dataset"
 out_json_path : "/home/renku/work/cardiac_deformation_final_dataset"
 
 hydra:
   job:
-    name: control_points_extraction
+    name: control_points_test
     chdir: true
   run:
     dir: /home/renku/work/OUTPUTS/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
