@@ -44,6 +44,9 @@ class ControlPoints:
         logger.debug("Returning points dictionary with labels=%s", list(self.points.keys()))
         return self.points
 
+    def GetLabels(): 
+        return self.labels
+
     def TransformPointsBack(self, transform: sitk.Transform) -> None:
         """
         Transform all stored points from the anchor reference system
@@ -165,7 +168,7 @@ class ControlPoints:
                     # update rule 
                     point = point - direction * self.step
 
-                if not found:
+                if not found: # fallback 1
                     extended_search_count += 1
                     for _ in range(extra_iter):
                         point_idx = tuple(int(x) for x in class_mask.TransformPhysicalPointToIndex(tuple(point)))
@@ -179,7 +182,7 @@ class ControlPoints:
 
                         point = point - direction * self.step
 
-                if not found:
+                if not found: # fallback 2
                     fallback_count += 1
                     best_point = None
                     best_score = -np.inf
@@ -473,7 +476,7 @@ def main(config):
 
 
     
-     # define anchor frame (reference)
+    # define anchor frame (reference)
     data_path = Path(config.data_path)
     anchor_frame = control_points.DefineAnchor(data_path / "patient001")
 
@@ -503,6 +506,7 @@ def main(config):
         results[pat.name] = {}
 
         for fr in tqdm(frames, desc=f"Processing frames for {pat.name}", leave=False):
+            fr_img = sitk.ReadImage(str(fr))
             logger.info("Processing frame %s for patient %s", fr.name, pat.name)
             # learn transform btw anchor and frame mask 
             # suppressing known normal NifTi warnings 
@@ -517,12 +521,28 @@ def main(config):
 
             # extract control points
             check = control_points.ExtractPoints(aligned_fr)
-            if check:
-                # map them back 
-                control_points.TransformPointsBack(transform)
-            else:
-                bad_segmented.setdefault(pat.name, []).append(_frame_name(fr))
+            if not check:
+                logger.warning( "Bad segmentation for patient=%s frame=%s. Skipping coords.", pat.name,
+                frame_key,)
+                bad_segmented.setdefault(pat.name, []).append(frame_key)
+            continue
+            
+            # map them back and into index coordinates  
+            control_points.TransformPointsBack(transform)
+            
+            pp = control_points.GetPoints()
 
+            # convert physical coordinates to continuous index coordinates
+            for label in control_points.GetLabels():
+                points_per_label = pp[label]
+
+                for pt in points_per_label:
+                    point_phys = tuple(float(x) for x in pt["point"])
+
+                    point_idx_xyz = fr_img.TransformPhysicalPointToContinuousIndex(point_phys)
+
+                    # keep SimpleITK index order [x, y, z]
+                    pt["point"] = [float(x) for x in point_idx_xyz]
             # save 
             frame_key = _frame_name(fr)
             frame_coords = _serialize_points(
@@ -549,7 +569,7 @@ def main(config):
     logger.info("Saved final control points JSON to %s", final_output_json)
 
     bad_seg_json.parent.mkdir(parents=True, exist_ok=True)
-    with open(final_output_json, "w", encoding = "utf-8" ) as f: 
+    with open(bad_seg_json, "w", encoding = "utf-8" ) as f: 
         json.dump(bad_segmented, f, indent=2)
     logger.info("Saved bad segmented frames in JSON to %s", bad_seg_json)
 
