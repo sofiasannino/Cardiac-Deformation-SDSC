@@ -194,3 +194,51 @@ def _serialize_points(points_dict: dict, labels: list[int]) -> dict:
             for point, direction in pts
         ]
     return out
+
+
+def plot_anchor_first_alignment(anchor_mask_path, aligned_first_mask, patient_name, out_dir):
+    """
+    Plot anchor mask and aligned first patient mask.
+    """
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # read anchor mask
+    anchor_mask = sitk.ReadImage(str(anchor_mask_path), sitk.sitkUInt8)
+
+    # convert to numpy arrays
+    anchor_arr = sitk.GetArrayFromImage(anchor_mask) > 0          # [z, y, x]
+    first_arr = sitk.GetArrayFromImage(aligned_first_mask) > 0    # [z, y, x]
+
+    # choose a representative slice
+    union_arr = anchor_arr | first_arr
+
+    if np.any(union_arr):
+        z_slice = int(np.round(np.mean(np.argwhere(union_arr)[:, 0])))
+    else:
+        z_slice = anchor_arr.shape[0] // 2
+
+    # plot
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+
+    axes[0].imshow(anchor_arr[z_slice], cmap="gray")
+    axes[0].set_title("Anchor mask")
+    axes[0].axis("off")
+
+    axes[1].imshow(first_arr[z_slice], cmap="gray")
+    axes[1].set_title("First frame aligned")
+    axes[1].axis("off")
+
+    axes[2].imshow(anchor_arr[z_slice], cmap="Reds", alpha=0.45)
+    axes[2].imshow(first_arr[z_slice], cmap="Blues", alpha=0.45)
+    axes[2].set_title("Overlay")
+    axes[2].axis("off")
+
+    fig.suptitle(f"{patient_name} - anchor vs first frame, z={z_slice}")
+    fig.tight_layout()
+
+    out_path = out_dir / f"{patient_name}_anchor_vs_first_frame.png"
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
+

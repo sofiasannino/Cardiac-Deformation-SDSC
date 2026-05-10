@@ -16,7 +16,7 @@ import logging
 from copy import deepcopy
 
 from control_points_utils import test_control_points_2d_3d
-from control_points_utils import _serialize_points,  _frame_name
+from control_points_utils import _serialize_points,  _frame_name, plot_anchor_first_alignment
 
 Point3D = Tuple[float, float, float]
 Direction = Tuple[float, float, float]
@@ -30,7 +30,8 @@ class ControlPoints:
         self.theta_num = cfg.theta_num
         self.phi_num = cfg.phi_num
         self.max_iter = cfg.iter
-        self.step = cfg.step 
+        self.step = cfg.step
+        self.extra_iter = cfg.extra_iter 
 
         self.directions: List[Direction] = self.GetSphericalDirections()
 
@@ -77,6 +78,33 @@ class ControlPoints:
 
             self.points[label] = transformed_points
             logger.debug("Label %s: transformed %s points back", label, len(transformed_points))
+    def ConvertPointsToContinuousIndex(self, reference_img: sitk.Image):
+        """
+        Convert physical control points to continuous index coordinates.
+        The points must already be expressed in the physical reference system
+        of reference_img
+        """
+
+        converted_points = {}
+
+        for label in self.labels:
+            converted_points[label] = []
+
+            for point_phys, direction in self.points[label]:
+                point_phys = tuple(float(x) for x in point_phys)
+
+                # convert physical point to continuous index
+                point_idx = reference_img.TransformPhysicalPointToContinuousIndex(point_phys)
+
+                # keep SimpleITK index order: (x, y, z)
+                converted_points[label].append(
+                    (
+                        tuple(float(x) for x in point_idx),
+                        tuple(float(x) for x in direction),
+                    )
+                )
+
+        self.points = converted_points
 
     def GetSphericalDirections(self) -> List[Direction]:
         """Sample directions on the sphere."""
@@ -104,7 +132,7 @@ class ControlPoints:
         logger.info("Sampled %s spherical directions", len(directions))
         return directions
 
-    def ExtractPoints(self, mask: sitk.Image):
+    def ExtractPointsWithGrid(self, mask: sitk.Image):
         """
         For each label:
         - compute centroid from the largest connected component
@@ -231,7 +259,6 @@ class ControlPoints:
         return True
     def GridSearch(self, label, point, direction, class_mask, size, extra_iter):
         found = False
-        extended_search_count = 0
 
         point = np.array(point, dtype=float)
         direction = np.array(direction, dtype=float)
@@ -247,13 +274,10 @@ class ControlPoints:
                     tuple(float(x) for x in point),
                     tuple(float(x) for x in direction),))
                 found = True
-                return found, point, extended_search_count
+                return found, point
 
             point = point - direction * self.step
-
-        # extra search 
-        extended_search_count = 1
-
+        # extra search
         for _ in range(extra_iter):
             point_idx = tuple(int(x) for x in class_mask.TransformPhysicalPointToIndex(tuple(point)))
 
@@ -265,16 +289,15 @@ class ControlPoints:
                     tuple(float(x) for x in direction),
                 ))
                 found = True
-                return found, point, extended_search_count
+                return found, point
 
             point = point - direction * self.step
 
-        return found, point, extended_search_count
+        return found, point
 
     def BinarySearch(self, label, point, direction, class_mask, centroid, size, extra_iter):
 
         found = False
-        extended_search_count = 0
 
         start = np.array(centroid, dtype=float)   # should be inside the mask
         end = np.array(point, dtype=float)        # should be outside the mask
@@ -290,7 +313,7 @@ class ControlPoints:
             end = end - direction * self.step
         else:
         # could not bring end inside the image
-            return False, end, extended_search_count
+            return False, end
 
     
         ### check that start is inside the image and mask
@@ -299,11 +322,11 @@ class ControlPoints:
         start_inside_image = all(0 <= start_idx[i] < size[i] for i in range(len(size)))
         if not start_inside_image:
             logger.warning("Start point is outside the image for label %s. Cannot perform binary search.", label)
-            return False, end, extended_search_count
+            return False, end
 
         if class_mask.GetPixel(start_idx) == 0:
             logger.warning("Start point is outside the mask for label %s. Cannot perform binary search.", label)
-            return False, end, extended_search_count
+            return False, end
 
         ### check that end is outside the mask
         end_idx = tuple(int(x) for x in class_mask.TransformPhysicalPointToIndex(tuple(end)))
@@ -311,7 +334,7 @@ class ControlPoints:
         if class_mask.GetPixel(end_idx) != 0:
             # binary search needs start inside and end outside
             logger.warning("End point is inside the mask for label %s. Cannot perform binary search.", label)
-            return False, end, extended_search_count
+            return False, end
     
         ### binary search
         for _ in range(self.max_iter):
@@ -325,7 +348,7 @@ class ControlPoints:
             else:
                 # mid is outside the mask, so move end inward
                 end = mid
-
+        '''
         ### optional extra refinement
     
         if extra_iter > 0:
@@ -342,13 +365,119 @@ class ControlPoints:
                 else:
                     # mid is outside the mask, so move end inward
                     end = mid
-
+        '''
         point = start
         found = True
 
         self.points[label].append((tuple(float(x) for x in point),tuple(float(x) for x in direction),))
 
-        return found, point, extended_search_count
+        return found, point
+
+    def BinarySearch2(self, label, point, direction, class_mask, centroid, size, extra_iter):
+        """
+        Binary-search-like ray refinement using the logic:
+
+        - Start from a point far from the centroid along `direction`.
+        - If the point is outside the image, move it inward along -direction.
+        - At each iteration:
+            - halve the distance
+            - if current point is inside the mask, move outward
+            - if current point is outside the mask, move inward
+        - If the final point is inside the mask, store it.
+        - Otherwise, run extra refinement iterations.
+        """
+
+        found = False
+        
+
+        point = np.array(point, dtype=float)
+        centroid = np.array(centroid, dtype=float)
+        direction = np.array(direction, dtype=float)
+
+        distance = np.linalg.norm(point - centroid)
+
+        def get_index_and_inside_image(p):
+            idx = tuple(
+                int(x) for x in class_mask.TransformPhysicalPointToIndex(tuple(p))
+            )
+            inside_image = all(0 <= idx[i] < size[i] for i in range(len(size)))
+            return idx, inside_image
+
+        def is_inside_mask(p):
+            idx, inside_image = get_index_and_inside_image(p)
+            if not inside_image:
+                return False, idx, inside_image
+            return class_mask.GetPixel(idx) != 0, idx, inside_image
+
+        # Bring starting point inside the image
+    
+        max_inside_iter = self.max_iter + extra_iter
+
+        for _ in range(max_inside_iter):
+            point_idx, inside_image = get_index_and_inside_image(point)
+
+            if inside_image:
+                break
+
+            point = point - direction * self.step
+
+        else:
+            # Could not bring point inside the image
+            return False, point
+
+    
+        # main binary-search-like refinement
+        for _ in range(self.max_iter):
+            inside_mask, point_idx, inside_image = is_inside_mask(point)
+
+            distance = distance / 2.0
+
+            if inside_mask:
+                # if inside the mask, move outward
+                point = point + direction * distance
+            else:
+                # if outside the mask 
+                point = point - direction * distance
+
+        inside_mask, point_idx, inside_image = is_inside_mask(point)
+
+        if inside_mask:
+            found = True
+            self.points[label].append(
+            (
+                tuple(float(x) for x in point),
+                tuple(float(x) for x in direction),
+            )
+        )
+            return found, point
+
+
+        # extra refinement if main search failed
+        if extra_iter > 0:
+
+            for _ in range(extra_iter):
+                inside_mask, point_idx, inside_image = is_inside_mask(point)
+
+                distance = distance / 2.0
+
+                if inside_mask:
+                    point = point + direction * distance
+                else:
+                    point = point - direction * distance
+
+            # Recompute after the last update
+            inside_mask, point_idx, inside_image = is_inside_mask(point)
+
+            if inside_mask:
+                found = True
+                self.points[label].append(
+                (
+                    tuple(float(x) for x in point),
+                    tuple(float(x) for x in direction),
+                )
+            )
+
+        return found, point
 
     def ExtractPoints(self, mask: sitk.Image):
         """
@@ -398,7 +527,8 @@ class ControlPoints:
             centroid_idx = tuple(int(x) for x in class_mask.TransformPhysicalPointToIndex(tuple(centroid)))
             if class_mask.GetPixel(centroid_idx)!=0: 
                 method = "binary"
-            else : 
+            else :
+                logger.warning("Using grid search since centroid not in mask :(") 
                 method = "grid"
 
             size = class_mask.GetSize()
@@ -408,7 +538,7 @@ class ControlPoints:
             contour_idx_zyx = np.argwhere(contour_arr > 0)
             logger.debug("Label %s: contour has %s voxels", label, len(contour_idx_zyx))
 
-            extended_search_count = 0
+            grid_search_count = 0
             fallback_count = 0
             failed_fallback_count = 0
             for d in tqdm(self.directions, desc = f"Extracting points from label {label} in all directions", leave=False):
@@ -416,12 +546,17 @@ class ControlPoints:
 
                 # starting rule: far away from the centroid 
                 point = centroid + direction * 2 * shape_stats.GetEquivalentSphericalRadius(1)
-                if method == "binary":
-                    found, best_point, used_extended_search_count = self.BinarySearch(label, point, direction, class_mask, centroid, size, extra_iter)
+                if method == "binary": # hoping for binary
+                    found, best_point = self.BinarySearch(label, point, direction, class_mask, centroid, size, extra_iter)
                 else:
-                    found, best_point, used_extended_search_count = self.GridSearch(label, point, direction, class_mask, size, extra_iter)
-                extended_search_count += used_extended_search_count
-                if not found: # fallback 2
+                    found, best_point = self.GridSearch(label, point, direction, class_mask, size, extra_iter)
+
+                if not found and method == "binary" : # fallback 1: grid search
+                    grid_search_count += 1
+                    point = centroid + direction * 2 * shape_stats.GetEquivalentSphericalRadius(1)
+                    found, best_point = self.GridSearch(label, point, direction, class_mask, size, extra_iter)
+
+                if not found: # fallback 2: contour 
                     fallback_count += 1
                     best_point = None
                     best_score = -np.inf
@@ -443,10 +578,10 @@ class ControlPoints:
                     else:
                         failed_fallback_count += 1
 
-            if extended_search_count > 0 or fallback_count > 0:
+            if grid_search_count > 0 or fallback_count > 0:
                 logger.warning(
-                "Label %s: used extended ray search for %s directions, contour fallback for %s directions, failed fallback for %s directions",
-                label, extended_search_count, fallback_count, failed_fallback_count
+                "Label %s: used grid ray search for %s directions, contour fallback for %s directions, failed fallback for %s directions",
+                label, grid_search_count, fallback_count, failed_fallback_count
             )
 
             logger.info(
@@ -555,47 +690,45 @@ def main(config):
     )
     logger.info("Starting control point extraction pipeline")
     logger.info("Config: %s", config)
-    
+
     control_points = ControlPoints(config)
-    test = True 
-    if test : 
+
+    test = bool(config.get("test", False))
+
+    if test: 
         logger.info("Running test mode")
-        toy_mask = sitk.ReadImage("/home/renku/work/s3-bucket/ACDC/training/patient001/patient001_frame01_gt.nii.gz", sitk.sitkUInt8)
+        toy_mask = sitk.ReadImage(
+            "/home/renku/work/cardiac_deformation_final_dataset/patient021/labels/patient021_iframe0001.nii.gz",
+            sitk.sitkUInt8
+        )
         control_points.ExtractPoints(toy_mask)
         test_control_points_2d_3d(control_points, toy_mask)
-        points_1 = control_points.GetPoints(1)
-        pts = [p for p, d in points_1]
-        print("total 1:", len(pts))
-        print("unique 1:", len(set(pts)))
 
-        points_2 = control_points.GetPoints(2)
-        pts = [p for p, d in points_2]
-        print("total 2:", len(pts))
-        print("unique 2:", len(set(pts)))
+    else: 
 
-        points_3 = control_points.GetPoints(3)
-        pts = [p for p, d in points_3]
-        print("total 3:", len(pts))
-        print("unique 3:", len(set(pts)))
-        test_control_points_2d_3d(control_points, toy_mask)
-    else : 
-        
         # define anchor frame (reference)
         data_path = Path(config.data_path)
         anchor_frame = control_points.DefineAnchor(data_path / "patient001")
 
+        # define output paths
+        out_json_path = Path(config.out_json_path)
+        final_output_json = out_json_path / "total_coords.json"
+        bad_seg_json = out_json_path / "bad_seg.json"
+
+        # folder for alignment plots
+        alignment_plot_dir = out_json_path / "alignment_plots"
+        alignment_plot_dir.mkdir(parents=True, exist_ok=True)
+
         # loop over patients and frames to find control points
-        patients_dir = sorted([f for f in (data_path).iterdir() if f.is_dir()])
+        patients_dir = sorted([f for f in data_path.iterdir() if f.is_dir()])
         logger.info("Found %s patient directories", len(patients_dir))
 
         results = {}
         bad_segmented = {}
-        final_output_json = Path(Path(config.out_json_path) / "total_coords.json")
-        bad_seg_json = Path(Path(config.out_json_path) / "bad_seg.json")
-        final_frame = None
 
         for pat in tqdm(patients_dir, desc="Processing patients"):
             logger.info("Processing patient %s", pat.name)
+
             labels_dir = pat / "labels"
             if not labels_dir.exists():
                 logger.warning("Skipping patient %s because labels directory does not exist", pat.name)
@@ -604,70 +737,100 @@ def main(config):
             coords_dir = pat / "coords"
             coords_dir.mkdir(parents=True, exist_ok=True)
 
-            # assuming frames are NIfTI files
             frames = sorted(list(labels_dir.glob("*.nii.gz")) + list(labels_dir.glob("*.nii")))
             logger.info("Patient %s has %s frames", pat.name, len(frames))
+
+            if len(frames) == 0:
+                logger.warning("Skipping patient %s because no frames were found", pat.name)
+                continue
+
             results[pat.name] = {}
 
-            for fr, num in enumerate(tqdm(frames, desc=f"Processing frames for {pat.name}", leave=False)):
-                fr_img = sitk.ReadImage(str(fr))
-                logger.info("Processing frame %s for patient %s", fr.name, pat.name)
-                # learn transform btw anchor and frame mask 
-                # suppressing known normal NifTi warnings
-                if num == 0: 
-                    old = sitk.ProcessObject.GetGlobalWarningDisplay()
-                    sitk.ProcessObject_SetGlobalWarningDisplay(False)
-                    try: # learn a transform only for first frame 
-                        transform = control_points.TransformToAnchor(anchor_frame, fr)
-                    finally:
-                        sitk.ProcessObject_SetGlobalWarningDisplay(old)
+            # choose first frame
+            first_frame = frames[0]
 
-                # align frame to anchor 
-                aligned_fr = control_points.AlignToAnchor(fr, anchor_frame, transform, IsMask=True)
+            # learn transform only between anchor and first frame
+            old = sitk.ProcessObject_GetGlobalWarningDisplay()
+            sitk.ProcessObject_SetGlobalWarningDisplay(False)
+            try:
+                transform = control_points.TransformToAnchor(anchor_frame, first_frame)
+            finally:
+                sitk.ProcessObject_SetGlobalWarningDisplay(old)
+
+            logger.info(
+                "Computed transform for patient %s using first frame %s",
+                pat.name,
+                first_frame.name
+            )
+
+            # align first frame to anchor for visualization
+            aligned_first_frame = control_points.AlignToAnchor(
+                first_frame,
+                anchor_frame,
+                transform,
+                IsMask=True
+            )
+
+            # plot anchor and first mask alignment
+            plot_anchor_first_alignment(
+                anchor_mask_path=anchor_frame,
+                aligned_first_mask=aligned_first_frame,
+                patient_name=pat.name,
+                out_dir=alignment_plot_dir
+            )
+            logger.info("Saved alignment plot for patient %s", pat.name)
+
+            # process all frames using the same transform
+            for fr in tqdm(frames, desc=f"Processing frames for {pat.name}", leave=False):
+                logger.info("Processing frame %s for patient %s", fr.name, pat.name)
+
+                # read original frame
+                fr_img = sitk.ReadImage(str(fr), sitk.sitkUInt8)
+
+                # align frame to anchor using first-frame transform
+                aligned_fr = control_points.AlignToAnchor(
+                    fr,
+                    anchor_frame,
+                    transform,
+                    IsMask=True
+                )
 
                 # extract control points
                 check = control_points.ExtractPoints(aligned_fr)
                 if not check:
-                    logger.warning( "Bad segmentation for patient=%s frame=%s. Skipping coords.", pat.name,
-                fr.name,)
+                    logger.warning(
+                        "Bad segmentation for patient=%s frame=%s. Skipping coords.",
+                        pat.name,
+                        fr.name
+                    )
                     bad_segmented.setdefault(pat.name, []).append(fr.name)
                     continue
-            
-                # map them back and into index coordinates  
+
+                # map points back to original patient reference system
                 control_points.TransformPointsBack(transform)
-            
-                pp = control_points.GetPoints()
 
                 # convert physical coordinates to continuous index coordinates
-                for label in control_points.GetLabels():
-                    points_per_label = pp[label]
+                control_points.ConvertPointsToContinuousIndex(fr_img)
 
-                    for pt in points_per_label:
-                        point_phys = tuple(float(x) for x in pt["point"])
-
-                        point_idx_xyz = fr_img.TransformPhysicalPointToContinuousIndex(point_phys)
-
-                        # keep SimpleITK index order [x, y, z]
-                        pt["point"] = [float(x) for x in point_idx_xyz]
                 # save 
                 frame_key = _frame_name(fr)
                 frame_coords = _serialize_points(
-                control_points.points,
-                control_points.labels,
-            )
+                    control_points.points,
+                    control_points.labels,
+                )
 
                 results[pat.name][frame_key] = frame_coords
                 logger.debug(
-                "Saved serialized points for patient=%s frame=%s",
-                pat.name, frame_key
-            )
+                    "Saved serialized points for patient=%s frame=%s",
+                    pat.name,
+                    frame_key
+                )
 
                 frame_output_json = coords_dir / f"coords_{frame_key}.json"
                 with open(frame_output_json, "w", encoding="utf-8") as f:
                     json.dump(frame_coords, f, indent=2)
-                logger.info("Saved frame control points JSON to %s", frame_output_json)
 
-                final_frame = fr
+                logger.info("Saved frame control points JSON to %s", frame_output_json)
 
         final_output_json.parent.mkdir(parents=True, exist_ok=True)
         with open(final_output_json, "w", encoding="utf-8") as f:
@@ -675,13 +838,9 @@ def main(config):
         logger.info("Saved final control points JSON to %s", final_output_json)
 
         bad_seg_json.parent.mkdir(parents=True, exist_ok=True)
-        with open(bad_seg_json, "w", encoding = "utf-8" ) as f: 
+        with open(bad_seg_json, "w", encoding="utf-8") as f:
             json.dump(bad_segmented, f, indent=2)
         logger.info("Saved bad segmented frames in JSON to %s", bad_seg_json)
-
-        # plot 
-        if final_frame is not None:
-            test_control_points_2d_3d(control_points, sitk.ReadImage(str(final_frame)))
 
 
 if __name__ == "__main__":
