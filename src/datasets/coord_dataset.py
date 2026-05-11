@@ -1,12 +1,15 @@
-import os
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from typing import List, Union, Type, Tuple
-import SimpleITK as sitk 
-import numpy as np
-import math
 from pathlib import Path
+from typing import Dict, List, Union, Tuple, Optional
+
 import json
+import warnings
+
+import SimpleITK as sitk
+import numpy as np
+import torch
+from threadpoolctl import threadpool_limits
+from batchgenerators.dataloading.data_loader import DataLoader
 
 
 class nnUNetBaseDataset(ABC):
@@ -15,14 +18,13 @@ class nnUNetBaseDataset(ABC):
     """
     def __init__(self, folder: str, identifiers: List[str] = None,):
         super().__init__()
-        # print('loading dataset')
-        if identifiers is None:
-            identifiers = self.get_identifiers(folder)
-        identifiers.sort()
+        
+       
 
         self.source_folder = folder
-        self.folder_with_segs_from_previous_stage = folder_with_segs_from_previous_stage
         self.identifiers = identifiers
+        if identifiers is None:
+            identifiers = self.get_identifiers(folder)
 
     def __getitem__(self, identifier):
         return self.load_case(identifier)
@@ -57,14 +59,11 @@ class nnUNetBaseDataset(ABC):
 
 
 class nnUNetDatasetCoord(nnUNetBaseDataset):
-    def __init__(self, folder: str, identifiers: Dict[str, Dict[str, str]] = None):
+    def __init__(self, folder: str, identifiers: Optional[Dict[str, Dict[str, str]]] = None, lables : Tuple[int, ...] = (1, 2, 3), points_per_label : int = 1562):
         super().__init__(folder, identifiers)
-        self.labels = [1, 2, 3] # labels 
-        self.K = 1562*3 # total number of control points
-        if identifiers is not None : 
-            self.identifiers = identifiers
-        else :
-            self.identifiers = self.get_identifiers(folder=folder)
+        self.labels = labels # labels 
+        self.K = points_per_label*3 # total number of control points
+        
         
 
     def __getitem__(self, identifier):
@@ -76,15 +75,33 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
         # load frame 
         frame_file = entry["frame"]
         frame = sitk.ReadImage(frame_file)
+        data = sitk.GetArrayFromImage(frame).astype(np.float32)  # [D, H, W]
+        data = data[None, ...]  # [1, D, H, W]
+
+        # z-score normalization
+        mean = data.mean()
+        std = data.std()
+        if std > 0:
+            data = (data - mean) / std
+
 
         # load coordinates
-        coords_list = self.load_coords(entry["coords"])
-        coords = np.stack(coord_list, axis=0).astype(np.float32)  # [K, 3] # still [x, y, z]
+        coords = self.load_coords(entry["coords"]) # [K, 3] # still [x, y, z]
 
+        
         if coords.shape[0] != self.K: 
             RuntimeError("not right number of coords")
+        
+        
+        properties = {
+        "spacing": frame.GetSpacing(),
+        "origin": frame.GetOrigin(),
+        "direction": frame.GetDirection(),
+        "size": frame.GetSize(),
+    }
 
-        return frame, coords
+        return data, coords, properties
+
     def load_coords(coords_file):
         coord_list = [] 
         with open(file=coords_file, mode='r') as f: 
@@ -99,7 +116,8 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
                 if len(point) != 3: 
                     RuntimeError("point has not 3 coordinates")
                 coord_list.append(point)
-        return coord_list
+        coords = np.stack(coord_list, axis=0).astype(np.float32) 
+        return coords 
 
     @staticmethod
     def save_case(data, seg, properties, output_filename_truncated):
@@ -177,6 +195,87 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 
         return identifiers
 
-    @staticmethod
-    def unpack_dataset(folder: str, overwrite_existing: bool = False, num_processes: int = 1, verify: bool = True):
-        pass
+    
+### Dataloader 
+
+class nnUNetDataLoaderCoord(DataLoader):
+    def __init__(self,
+                 data: nnUNetBaseDataset,
+                 batch_size: int,
+                 patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+                 final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+                 label_manager: LabelManager,
+                 oversample_foreground_percent: float = 0.0,
+                 sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
+                 pad_sides: Union[List[int], Tuple[int, ...]] = None,
+                 probabilistic_oversampling: bool = False,
+                 transforms=None):
+
+        super().__init__(data, 1 , 1, None, True,
+                         False, True, sampling_probabilities) # batch_size = 1
+
+
+        # this is used by DataLoader for sampling train cases!
+        self.indices = sorted(list(data.identifiers.keys()))
+        self.transforms = transforms
+
+
+    def generate_train_batch(self):
+
+        selected_keys = self.get_indices()
+        # preallocate output tensors in final patch size and write transformed samples directly
+        data_all = None
+        coords_all = None
+
+        with torch.no_grad():
+            with threadpool_limits(limits=1, user_api=None):
+
+                data, coords, properties = self._data.load_case(key)
+                # data must already be numpy 
+                data = np.asarray(data, dtype=np.float32) # [C, D, H, W]
+
+                
+                coords = np.asarray(coords, dtype=np.float32) # [x, y, z]
+
+                if coords.ndim != 2 or coords.shape[1] != 3:
+                    raise RuntimeError(f"Expected coords shape [K, 3], got {coords.shape} for {key}")
+
+                # convert [x, y, z] to  [z, y, x]
+                coords = coords[:, [2, 1, 0]]
+
+                # normalize coords in [0, 1] using data shape [C, D, H, W]
+                C, D, H, W = data.shape
+
+                coords[:, 0] = coords[:, 0] / (D - 1)
+                coords[:, 1] = coords[:, 1] / (H - 1)
+                coords[:, 2] = coords[:, 2] / (W - 1)
+
+                data_sample = torch.from_numpy(data).float()
+                coords_sample = torch.from_numpy(coords).float()
+
+                if self.transforms is not None:
+                    # Only safe for intensity-only transforms unless coords are also transformed.
+                    transformed = self.transforms(**{"image": data_sample})
+                    data_sample = transformed["image"]
+
+                if data_all is None:
+                    data_all = torch.empty(
+                        (self.batch_size, *data_sample.shape),
+                        dtype=torch.float32,
+                    )
+
+                    coords_all = torch.empty(
+                        (self.batch_size, *coords_sample.shape),
+                        dtype=torch.float32,
+                    )
+
+                #if data_sample.shape != data_all.shape[1:]:
+                    #raise RuntimeError(
+                    #    f"Shape mismatch in batch. First sample shape={data_all.shape[1:]}, "
+                    #    f"current sample {key} shape={data_sample.shape}. "
+                    #    f"Use batch_size=1, padding, cropping, or resampling.")
+
+                data_all[j] = data_sample
+                coords_all[j] = coords_sample
+                    
+        return {'data': data_all, 'coords': coords_all, 'keys': selected_keys}
