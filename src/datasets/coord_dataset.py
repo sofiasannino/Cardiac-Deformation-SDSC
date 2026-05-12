@@ -207,7 +207,7 @@ class nnUNetDataLoaderCoord(DataLoader):
                  transforms=None):
 
         super().__init__(data, 1 , 1, None, True,
-                         False, True, sampling_probabilities) # batch_size = 1
+                         True, False , sampling_probabilities) # batch_size = 1
 
 
         # this is used by DataLoader for sampling train cases!
