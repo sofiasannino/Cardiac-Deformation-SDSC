@@ -412,7 +412,7 @@ class nnUNetTrainerCoord():
     n_conv_per_stage_decoder=(2, 2, 2, 2, 2),
     pool_size=self.pool_size,
     hidden_coord=self.hidden_coord,
-    K=self.K,  # number of control points
+    K=self.K*3,  # number of control points
     conv_bias=True,
     norm_op=nn.InstanceNorm3d,
     norm_op_kwargs={"eps": 1e-5, "affine": True},
