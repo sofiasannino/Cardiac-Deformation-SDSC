@@ -17,3 +17,8 @@ def main(config) :
 
     # plot losses 
     plot_losses(config)
+
+
+
+if __name__ == "__main__":
+    main()
