@@ -116,14 +116,16 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
                     RuntimeError("point has not 3 coordinates")
                 coord_list.append(point)
         coords = np.stack(coord_list, axis=0).astype(np.float32) 
-        return coords 
+        return coords
+    
+
+    def _get_identifiers(self) : 
+        return self.identifiers
 
     @staticmethod
     def save_case(data, seg, properties, output_filename_truncated):
         raise NotImplementedError("Coordinate dataset does not save cases.")
    
-    def _get_identifiers(self) : 
-        return self.identifiers
 
     @staticmethod
     def get_identifiers(folder: str) -> Dict[str, Dict[str, str]]:
