@@ -170,7 +170,7 @@ class CoordHead(nn.Module):
         super().__init__()
         self.deep_supervision = False
         self.encoder = encoder
-        self.num_classes = num_classes
+        #self.num_classes = num_classes
         self.K=K
 
         coord_in_features = encoder.output_channels[-1] * pool_size ** 3 # not using logits 
