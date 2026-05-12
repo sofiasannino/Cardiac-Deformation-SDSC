@@ -13,7 +13,7 @@ from pathlib import Path
 import json
 from time import time
 import omegaconf
-import tqdm
+from tqdm import tqdm 
 
 
 import numpy as np
@@ -33,6 +33,7 @@ from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAu
 from src.datasets.coord_dataset import nnUNetDatasetCoord, nnUNetDataLoaderCoord
 from src.model.unet import PlainConvUNetCoord
 from src.trainer.polylr import PolyLRScheduler
+
 
 logger = logging.getLogger(__name__)
 
@@ -628,7 +629,7 @@ class nnUNetTrainerCoord():
         self.num_train_samples = len({v["patient"] for v in dataset_tr.identifiers.values()})
         self.num_val_samples = len({v["patient"] for v in dataset_val.identifiers.values()})
 
-        logger.debug(f"TRAIN SAMPLES: {self.num_train_samples}, VALIDATION SAMPLES: {self.num_val_samples}")
+        logger.info(f"TRAIN SAMPLES: {self.num_train_samples}, VALIDATION SAMPLES: {self.num_val_samples}")
 
         return dataset_tr, dataset_val
 
