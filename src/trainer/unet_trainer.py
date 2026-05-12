@@ -110,7 +110,7 @@ class nnUNetTrainerCoord():
         #        if self.is_cascaded else None
 
         ### Dataset
-        self.dataset_class = nnUNetDatasetCoord(self.preprocessed_dataset_folder, None, self.max_num_patients)
+        self.dataset_class = nnUNetDatasetCoord
 
         ### Some hyperparameters for you to fiddle with ---- > change this with config 
         self.initial_lr = config.initial_lr
