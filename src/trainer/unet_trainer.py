@@ -389,7 +389,6 @@ class nnUNetTrainerCoord():
             dct['cudnn_version'] = cudnn_version
             save_json(dct, join(self.output_folder, "debug.json"))
     '''
-    @staticmethod
     def build_network_architecture(self) -> nn.Module:
         """
         This is where you build the architecture according to the plans. There is no obligation to use
