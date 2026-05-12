@@ -1,7 +1,7 @@
 max_num_patients: null
 batch_size: 1
-K: 100
-pool_size: 2
+K: 1562 # points per label
+pool_size: 3 # avg pooling in coordinate head 
 hidden_coord: 256
 enable_deep_supervision: false
 
@@ -9,7 +9,7 @@ is_ddp: false
 cuda_device_index: 0
 
 fold: 0
-dataset_folder: /home/renku/work/nnUNet_preprocessed/Dataset027_ACDC/nnUNetPlans_3d_fullres
+dataset_folder: /home/renku/work/cardiac_deformation_final_dataset
 
 initial_lr: 0.01
 weight_decay: 0.00003
