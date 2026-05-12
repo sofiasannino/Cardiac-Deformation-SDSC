@@ -618,7 +618,7 @@ class nnUNetTrainerCoord():
         indent=2,
     )
 
-        all_identifiers = self.dataset_class._get_identifiers(self.preprocessed_dataset_folder)
+        all_identifiers = self.dataset_class._get_identifiers()
         tr_identifiers = { k: all_identifiers[k] for k in tr_keys}
         val_identifiers = {k: all_identifiers[k] for k in val_keys }
         dataset_tr = self.dataset_class( self.preprocessed_dataset_folder, identifiers=tr_identifiers,)
