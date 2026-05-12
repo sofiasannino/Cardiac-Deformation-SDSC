@@ -68,7 +68,7 @@ class nnUNetTrainerCoord():
         #          f"Setting device to {self.device}")
         #    self.device = torch.device(type='cuda', index=self.local_rank)
         #else:
-        if self.device.type == 'cuda':
+        if self.device == "cuda":
             # we might want to let the user pick this but for now please pick the correct GPU with CUDA_VISIBLE_DEVICES=X
             self.device = torch.device(type='cuda', index=config.cuda_device_index)
         print(f"Using device: {self.device}")
