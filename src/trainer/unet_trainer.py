@@ -52,7 +52,7 @@ class nnUNetTrainerCoord():
         self.K = config.K
         self.pool_size = config.pool_size
         self.hidden_coord = config.hidden_coord
-        self.dataset_class = nnUNetDatasetCoord
+       
 
         
         self.is_ddp = config.is_ddp # we cannot distribute GPUs right now 
@@ -108,6 +108,9 @@ class nnUNetTrainerCoord():
         #         self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" +
         #         self.configuration_manager.previous_stage_name, 'predicted_next_stage', self.configuration_name) \
         #        if self.is_cascaded else None
+
+        ### Dataset
+        self.dataset_class = nnUNetDatasetCoord(self.preprocessed_dataset_folder, None, self.max_num_patients)
 
         ### Some hyperparameters for you to fiddle with ---- > change this with config 
         self.initial_lr = config.initial_lr
@@ -615,7 +618,7 @@ class nnUNetTrainerCoord():
         indent=2,
     )
 
-        all_identifiers = self.dataset_class.get_identifiers(self.preprocessed_dataset_folder)
+        all_identifiers = self.dataset_class._get_identifiers(self.preprocessed_dataset_folder)
         tr_identifiers = { k: all_identifiers[k] for k in tr_keys}
         val_identifiers = {k: all_identifiers[k] for k in val_keys }
         dataset_tr = self.dataset_class( self.preprocessed_dataset_folder, identifiers=tr_identifiers,)

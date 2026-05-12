@@ -1,4 +1,4 @@
-max_num_patients: null
+max_num_patients: 10
 batch_size: 1
 K: 1562 # points per label
 pool_size: 3 # avg pooling in coordinate head 

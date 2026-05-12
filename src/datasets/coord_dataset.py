@@ -89,7 +89,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 
         
         if coords.shape[0] != self.K: 
-            RuntimeError("not right number of coords")
+            raise RuntimeError("not right number of coords")
         
         
         properties = {
@@ -121,6 +121,9 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
     @staticmethod
     def save_case(data, seg, properties, output_filename_truncated):
         raise NotImplementedError("Coordinate dataset does not save cases.")
+   
+    def _get_identifiers(self) : 
+        return self.identifiers
 
     @staticmethod
     def get_identifiers(folder: str) -> Dict[str, Dict[str, str]]:
@@ -199,7 +202,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 
 class nnUNetDataLoaderCoord(DataLoader):
     def __init__(self,
-                 data: nnUNetBaseDataset,
+                 data: nnUNetDatasetCoord,
                  batch_size: int,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  transforms=None):
@@ -222,53 +225,54 @@ class nnUNetDataLoaderCoord(DataLoader):
 
         with torch.no_grad():
             with threadpool_limits(limits=1, user_api=None):
+                for j, key in enumerate(selected_keys):
 
-                data, coords, properties = self._data.load_case(key)
-                # data must already be numpy 
-                data = np.asarray(data, dtype=np.float32) # [C, D, H, W]
+                    data, coords, properties = self._data.load_case(key)
+                    # data must already be numpy 
+                    data = np.asarray(data, dtype=np.float32) # [C, D, H, W]
 
-                
-                coords = np.asarray(coords, dtype=np.float32) # [x, y, z]
+                    
+                    coords = np.asarray(coords, dtype=np.float32) # [x, y, z]
 
-                if coords.ndim != 2 or coords.shape[1] != 3:
-                    raise RuntimeError(f"Expected coords shape [K, 3], got {coords.shape} for {key}")
+                    if coords.ndim != 2 or coords.shape[1] != 3:
+                        raise RuntimeError(f"Expected coords shape [K, 3], got {coords.shape} for {key}")
 
-                # convert [x, y, z] to  [z, y, x]
-                coords = coords[:, [2, 1, 0]]
+                    # convert [x, y, z] to  [z, y, x]
+                    coords = coords[:, [2, 1, 0]]
 
-                # normalize coords in [0, 1] using data shape [C, D, H, W]
-                C, D, H, W = data.shape
+                    # normalize coords in [0, 1] using data shape [C, D, H, W]
+                    C, D, H, W = data.shape
 
-                coords[:, 0] = coords[:, 0] / (D - 1)
-                coords[:, 1] = coords[:, 1] / (H - 1)
-                coords[:, 2] = coords[:, 2] / (W - 1)
+                    coords[:, 0] = coords[:, 0] / (D - 1)
+                    coords[:, 1] = coords[:, 1] / (H - 1)
+                    coords[:, 2] = coords[:, 2] / (W - 1)
 
-                data_sample = torch.from_numpy(data).float()
-                coords_sample = torch.from_numpy(coords).float()
+                    data_sample = torch.from_numpy(data).float()
+                    coords_sample = torch.from_numpy(coords).float()
 
-                if self.transforms is not None:
-                    # Only safe for intensity-only transforms unless coords are also transformed.
-                    transformed = self.transforms(**{"image": data_sample})
-                    data_sample = transformed["image"]
+                    if self.transforms is not None:
+                        # Only safe for intensity-only transforms unless coords are also transformed.
+                        transformed = self.transforms(**{"image": data_sample})
+                        data_sample = transformed["image"]
 
-                if data_all is None:
-                    data_all = torch.empty(
-                        (self.batch_size, *data_sample.shape),
-                        dtype=torch.float32,
-                    )
+                    if data_all is None:
+                        data_all = torch.empty(
+                            (self.batch_size, *data_sample.shape),
+                            dtype=torch.float32,
+                        )
 
-                    coords_all = torch.empty(
-                        (self.batch_size, *coords_sample.shape),
-                        dtype=torch.float32,
-                    )
+                        coords_all = torch.empty(
+                            (self.batch_size, *coords_sample.shape),
+                            dtype=torch.float32,
+                        )
 
-                #if data_sample.shape != data_all.shape[1:]:
-                    #raise RuntimeError(
-                    #    f"Shape mismatch in batch. First sample shape={data_all.shape[1:]}, "
-                    #    f"current sample {key} shape={data_sample.shape}. "
-                    #    f"Use batch_size=1, padding, cropping, or resampling.")
+                    #if data_sample.shape != data_all.shape[1:]:
+                        #raise RuntimeError(
+                        #    f"Shape mismatch in batch. First sample shape={data_all.shape[1:]}, "
+                        #    f"current sample {key} shape={data_sample.shape}. "
+                        #    f"Use batch_size=1, padding, cropping, or resampling.")
 
-                data_all[j] = data_sample
-                coords_all[j] = coords_sample
+                    data_all[j] = data_sample
+                    coords_all[j] = coords_sample
                     
         return {'data': data_all, 'coords': coords_all, 'keys': selected_keys}
