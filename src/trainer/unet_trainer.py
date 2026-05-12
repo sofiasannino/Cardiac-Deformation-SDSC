@@ -661,23 +661,11 @@ class nnUNetTrainerCoord():
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
         dl_tr = nnUNetDataLoaderCoord(dataset_tr,
                  self.batch_size, # 1 
-                 None,
-                 None ,
-                 None,
-                 oversample_foreground_percent=0.0,
                  sampling_probabilities=None,
-                 pad_sides= None,
-                 probabilistic_oversampling = False,
                  transforms=None)
         dl_val = nnUNetDataLoaderCoord(dataset_val,
                  self.batch_size, # 1 
-                 None,
-                 None ,
-                 None,
-                 oversample_foreground_percent=0.0,
                  sampling_probabilities=None,
-                 pad_sides= None,
-                 probabilistic_oversampling = False,
                  transforms=None)
 
         allowed_num_processes = 0 # get_allowed_n_proc_DA(), for first run not implemented 

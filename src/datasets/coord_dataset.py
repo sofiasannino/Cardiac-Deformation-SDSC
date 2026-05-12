@@ -201,13 +201,7 @@ class nnUNetDataLoaderCoord(DataLoader):
     def __init__(self,
                  data: nnUNetBaseDataset,
                  batch_size: int,
-                 patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
-                 final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
-                 label_manager: LabelManager,
-                 oversample_foreground_percent: float = 0.0,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
-                 pad_sides: Union[List[int], Tuple[int, ...]] = None,
-                 probabilistic_oversampling: bool = False,
                  transforms=None):
 
         super().__init__(data, 1 , 1, None, True,
