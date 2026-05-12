@@ -39,7 +39,7 @@ def plot_losses(config : omegaconf.DictConfig):
     plt.figure()
     plt.plot(epochs, train_losses, color="green", label="Train loss")
     plt.plot(epochs, val_losses, color="blue", label="Validation loss")
-    plt.plot(epochs, point_errors, color="red", label="Euclidean mean point error")
+   
 
     plt.xlabel("Epoch")
     plt.legend()
@@ -57,6 +57,14 @@ def plot_losses(config : omegaconf.DictConfig):
 
     out_path_times = Path(HydraConfig.get().runtime.output_dir) / "epoch_times.png"
     plt.savefig(out_path_times, dpi=300, bbox_inches="tight")
+
+    plt.figure()
+    plt.plot(epochs, point_errors, color="red", label="Euclidean mean point error")
+    plt.xlabel("Epoch")
+    plt.legend()
+    plt.grid(True)
+    out_path_errors = Path(HydraConfig.get().runtime.output_dir) / "errors.png" 
+    plt.savefig(out_path_errors, dpi = 300, bbox_inches = "tight")
 
          
 

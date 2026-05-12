@@ -119,9 +119,6 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
         return coords
     
 
-    def _get_identifiers(self) : 
-        return self.identifiers
-
     @staticmethod
     def save_case(data, seg, properties, output_filename_truncated):
         raise NotImplementedError("Coordinate dataset does not save cases.")

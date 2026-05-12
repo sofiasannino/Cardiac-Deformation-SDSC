@@ -629,6 +629,9 @@ class nnUNetTrainerCoord():
         self.num_train_samples = len({v["patient"] for v in dataset_tr.identifiers.values()})
         self.num_val_samples = len({v["patient"] for v in dataset_val.identifiers.values()})
 
+        self.num_train_iterations_per_epoch = len(dataset_tr) # OCCHIO CHE STAI SOVRASCRIVENDO QUI 
+        self.num_val_iterations_per_epoch = len(val_identifiers)
+
         logger.info(f"TRAIN SAMPLES: {self.num_train_samples}, VALIDATION SAMPLES: {self.num_val_samples}")
 
         return dataset_tr, dataset_val
