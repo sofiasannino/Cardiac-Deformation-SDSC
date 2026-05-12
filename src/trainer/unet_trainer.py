@@ -618,7 +618,7 @@ class nnUNetTrainerCoord():
         indent=2,
     )
 
-        all_identifiers = self.dataset_class._get_identifiers()
+        all_identifiers = self.dataset_class.get_identifiers(self.preprocessed_dataset_folder)
         tr_identifiers = { k: all_identifiers[k] for k in tr_keys}
         val_identifiers = {k: all_identifiers[k] for k in val_keys }
         dataset_tr = self.dataset_class( self.preprocessed_dataset_folder, identifiers=tr_identifiers,)
@@ -627,6 +627,8 @@ class nnUNetTrainerCoord():
 
         self.num_train_samples = len({v["patient"] for v in dataset_tr.identifiers.values()})
         self.num_val_samples = len({v["patient"] for v in dataset_val.identifiers.values()})
+
+        logger.debug(f"TRAIN SAMPLES: {self.num_train_samples}, VALIDATION SAMPLES: {self.num_val_samples}")
 
         return dataset_tr, dataset_val
 
