@@ -1,0 +1,33 @@
+max_num_patients: null
+batch_size: 1
+K: 100
+pool_size: 2
+hidden_coord: 256
+enable_deep_supervision: false
+
+is_ddp: false
+cuda_device_index: 0
+
+fold: 0
+dataset_folder: /home/renku/work/nnUNet_preprocessed/Dataset027_ACDC/nnUNetPlans_3d_fullres
+
+initial_lr: 0.01
+weight_decay: 0.00003
+oversample_foreground_percent: 0.33
+probabilistic_oversampling: false
+num_train_iterations_per_epoch: 5
+num_val_iterations_per_epoch: 1
+num_epochs: 10
+current_epoch: 0
+
+save_every: 1
+disable_checkpointing: false
+checkpoint_path: /home/renku/work/nnUNet_results_0/Dataset027_ACDC/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/fold_0/checkpoint_best.pth
+history_json: training_history.json
+
+hydra:
+  job:
+    name: unet_coord_runs
+    chdir: true
+  run:
+    dir: /home/renku/work/OUTPUTS/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}

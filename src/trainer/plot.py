@@ -1,0 +1,60 @@
+import matplotlib.pyplot as plt 
+import json 
+import omegaconf
+import numpy as np
+from hydra.core.hydra_config import HydraConfig
+from pathlib import Path
+
+
+
+def plot_losses(config : omegaconf.DictConfig):
+
+    training_history_json = config.history_json
+
+    with open(training_history_json, "r", encoding = "utf-8" ) as f: 
+         training_history = json.load(f)
+
+    epochs_record  = training_history["epochs"]
+
+    epochs = []
+    train_losses = []
+    val_losses = []
+    point_errors = []
+    epoch_times = []
+
+    for item in epochs_record : 
+         epochs.append(item["epoch"])
+         train_losses.append(item["train_loss"])
+         val_losses.append(item["val_loss"])
+         point_errors.append(item["val_mean_point_error"])
+         epoch_times.append(item["epoch_time"])
+    
+
+    epochs = np.asarray(epochs)
+    train_losses = np.asarray(train_losses)
+    val_losses = np.asarray(val_losses)
+    point_errors = np.asarray(point_errors)
+    epoch_times = np.asarray(epoch_times)
+
+    plt.figure()
+    plt.plot(epochs, train_losses, color="green", label="Train loss")
+    plt.plot(epochs, val_losses, color="blue", label="Validation loss")
+    plt.plot(epochs, point_errors, color="red", label="Euclidean mean point error")
+
+    plt.xlabel("Epoch")
+    plt.legend()
+    plt.grid(True)
+
+    out_path = Path(HydraConfig.get().runtime.output_dir) / "losses.png"
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+    plt.show()
+
+    plt.figure()
+    plt.plot(epochs, epoch_times, color="black", label="Epoch time")
+    plt.xlabel("Epoch")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+
+         
+

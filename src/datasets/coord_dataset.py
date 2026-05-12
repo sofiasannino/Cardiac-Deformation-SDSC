@@ -19,12 +19,10 @@ class nnUNetBaseDataset(ABC):
     def __init__(self, folder: str, identifiers: List[str] = None,):
         super().__init__()
         
-       
-
         self.source_folder = folder
-        self.identifiers = identifiers
         if identifiers is None:
             identifiers = self.get_identifiers(folder)
+        self.identifiers = identifiers
 
     def __getitem__(self, identifier):
         return self.load_case(identifier)
@@ -59,13 +57,14 @@ class nnUNetBaseDataset(ABC):
 
 
 class nnUNetDatasetCoord(nnUNetBaseDataset):
-    def __init__(self, folder: str, identifiers: Optional[Dict[str, Dict[str, str]]] = None, lables : Tuple[int, ...] = (1, 2, 3), points_per_label : int = 1562):
+    def __init__(self, folder: str, identifiers: Optional[Dict[str, Dict[str, str]]] = None, labels : Tuple[int, ...] = (1, 2, 3), points_per_label : int = 1562,
+                 max_num_patients: Optional[int] = None, num_frames_per_patient: int = 20):
         super().__init__(folder, identifiers)
         self.labels = labels # labels 
         self.K = points_per_label*3 # total number of control points
+        if max_num_patients is not None:
+            self.identifiers = dict(list(self.identifiers.items())[:(max_num_patients*num_frames_per_patient)])
         
-        
-
     def __getitem__(self, identifier):
         return self.load_case(identifier)
 
@@ -102,7 +101,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 
         return data, coords, properties
 
-    def load_coords(coords_file):
+    def load_coords(self, coords_file):
         coord_list = [] 
         with open(file=coords_file, mode='r') as f: 
                 coords_dict = json.load(f)
@@ -110,9 +109,9 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
         for label in self.labels:
             label_key = str(label)
 
-            points_per_label = coord_dict[label_key]
-            for item in self.points_per_label :  
-                point = np.asarray(item["point"], dtype=np.float32)
+            points_per_label = coords_dict[label_key]
+            for item in points_per_label :  
+                point = np.asarray(item["point"], dtype=np.float32) # directions already create the order
                 if len(point) != 3: 
                     RuntimeError("point has not 3 coordinates")
                 coord_list.append(point)
