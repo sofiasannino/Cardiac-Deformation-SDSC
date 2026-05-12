@@ -54,7 +54,9 @@ def plot_losses(config : omegaconf.DictConfig):
     plt.xlabel("Epoch")
     plt.legend()
     plt.grid(True)
-    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+
+    out_path_times = Path(HydraConfig.get().runtime.output_dir) / "epoch_times.png"
+    plt.savefig(out_path_times, dpi=300, bbox_inches="tight")
 
          
 
