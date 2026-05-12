@@ -48,7 +48,7 @@ class nnUNetBaseDataset(ABC):
 
     @staticmethod
     def unpack_dataset(folder: str, overwrite_existing: bool = False,
-                       num_processes: int = default_num_processes,
+                       num_processes: int = 1,
                        verify: bool = True):
         pass
 
