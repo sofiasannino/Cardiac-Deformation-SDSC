@@ -7,14 +7,14 @@ import torch
 from dataclasses import dataclass
 import torch
 
-from building_blocks.helper import convert_conv_op_to_dim
-from building_blocks.plain_conv_encoder import PlainConvEncoder
-from building_blocks.residual import BasicBlockD, BottleneckD
-from building_blocks.residual_encoders import ResidualEncoder
-from building_blocks.unet_decoder import UNetDecoder, CoordHead
-from building_blocks.unet_residual_decoder import UNetResDecoder
-from initialization.weight_init import InitWeights_He
-from initialization.weight_init import init_last_bn_before_add_to_0
+from .building_blocks.helper import convert_conv_op_to_dim
+from .building_blocks.plain_conv_encoder import PlainConvEncoder
+from .building_blocks.residual import BasicBlockD, BottleneckD
+from .building_blocks.residual_encoders import ResidualEncoder
+from .building_blocks.unet_decoder import UNetDecoder, CoordHead
+from .building_blocks.unet_residual_decoder import UNetResDecoder
+from .initialization.weight_init import InitWeights_He
+from .initialization.weight_init import init_last_bn_before_add_to_0
 from torch import nn
 from torch.nn.modules.conv import _ConvNd
 from torch.nn.modules.dropout import _DropoutNd
