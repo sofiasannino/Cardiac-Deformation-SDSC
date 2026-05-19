@@ -14,6 +14,7 @@ from tqdm import tqdm
 import os
 import logging
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 from control_points_utils import test_control_points_2d_3d
 from control_points_utils import _serialize_points,  _frame_name, plot_anchor_first_alignment
@@ -59,11 +60,11 @@ class ControlPoints:
 
         Assumes:
         - self.points[label] = [(point, direction), ...]
-        - `transform` maps ORIGINAL -> ANCHOR
+        - `transform` maps ANCHOR -> ORIGINAL
         """
 
         logger.info("Transforming points back to original reference system")
-        inverse_transform = transform.GetInverse()
+        inverse_transform = transform # BECAUSE SITK LEARNS A TRANSFORM P_MOVING = T(P_ALIGNED)--> ALIGNED[P_ALIGNED] = MOVING[P_MOVING]
 
         for label, points_with_dirs in tqdm(
             self.points.items(),
@@ -604,7 +605,7 @@ class ControlPoints:
         
 
     def TransformToAnchor(self, fixed_mask_path : Path, moving_mask_path : Path):
-        """Compute the transform from a mask to the reference mask using SimpleITK registration."""
+        """Compute the transform used to resample the moving mask onto the fixed/anchor mask."""
         logger.info("Computing transform from moving=%s to fixed=%s", moving_mask_path, fixed_mask_path)
         # load masks as SimpleITK images
         fixed_orig = sitk.ReadImage(fixed_mask_path, sitk.sitkFloat32)
@@ -674,6 +675,98 @@ class ControlPoints:
         aligned = resampler.Execute(moving_mri)
         logger.debug("Finished alignment for %s", moving_mri_path)
         return aligned
+    
+def _find_corresponding_mri_frame(patient_dir: Path, mask_frame_path: Path):
+    """
+    Find the original MRI frame corresponding to a label/mask frame.
+
+    Expected structure:
+    patient_dir/
+        labels/
+        frames/
+    """
+    frames_dir = patient_dir / "frames"
+
+    if not frames_dir.exists():
+        return None
+
+    candidate = frames_dir / mask_frame_path.name
+    if candidate.exists():
+        return candidate
+
+    # fallback for .nii / .nii.gz ambiguity
+    candidates = list(frames_dir.glob(mask_frame_path.stem + "*"))
+    if len(candidates) > 0:
+        return candidates[0]
+
+    return None
+
+def plot_control_points_on_mri_slice(
+    mri_img: sitk.Image,
+    coords,
+    key: str,
+    out_file: Path,
+    z_slice=None,
+    tol=1.0,
+        ):
+    """
+    Plot one 2D z-slice of a 3D MRI frame with control points overlaid.
+
+    mri_img: SimpleITK image of the original MRI frame, not the mask
+    coords:  [K, 3] continuous voxel indexes in [x, y, z]
+    """
+
+    img = sitk.GetArrayFromImage(mri_img)  # [D, H, W]
+    D, H, W = img.shape
+
+    coords = np.asarray(coords, dtype=np.float32)
+
+    if coords.shape[0] == 0:
+        logger.warning("No control points to plot for %s", key)
+        return
+
+    x = coords[:, 0]
+    y = coords[:, 1]
+    z = coords[:, 2]
+
+    if z_slice is None:
+        z_slice = int(np.round(np.mean(z)))
+
+    z_slice = int(np.clip(z_slice, 0, D - 1))
+
+    keep = np.abs(z - z_slice) <= tol
+
+    out_file = Path(out_file)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    plt.figure(figsize=(7, 7))
+    plt.imshow(img[z_slice], cmap="gray")
+    plt.scatter(x[keep], y[keep], s=6, c="red", alpha=0.7)
+
+    plt.title(f"{key} | z={z_slice} | points={int(keep.sum())}")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.savefig(out_file, dpi=200)
+    plt.close()
+    
+def _flatten_control_points(points_dict):
+    """
+    Convert control_points.points into a single [K, 3] array.
+
+    Assumes:
+    - points_dict[label] = [(point, direction), ...]
+    - point is already in continuous voxel index coordinates [x, y, z]
+    """
+    coords = []
+
+    for label, points_with_dirs in points_dict.items():
+        for p, d in points_with_dirs:
+            coords.append(p)
+
+    if len(coords) == 0:
+        return np.zeros((0, 3), dtype=np.float32)
+
+    return np.asarray(coords, dtype=np.float32)
 
 
 
@@ -718,6 +811,10 @@ def main(config):
         # folder for alignment plots
         alignment_plot_dir = out_json_path / "alignment_plots"
         alignment_plot_dir.mkdir(parents=True, exist_ok=True)
+
+        # folder for control points alignment check
+        control_points_plot_dir = out_json_path / "control_points_plot"
+        control_points_plot_dir.mkdir(parents=True, exist_ok=True)
 
         # loop over patients and frames to find control points
         patients_dir = sorted([f for f in data_path.iterdir() if f.is_dir()])
@@ -812,8 +909,36 @@ def main(config):
                 # convert physical coordinates to continuous index coordinates
                 control_points.ConvertPointsToContinuousIndex(fr_img)
 
-                # save 
+                # plot control points on the corresponding original MRI frame, not on the mask
                 frame_key = _frame_name(fr)
+
+                mri_frame_path = _find_corresponding_mri_frame(pat, fr)
+
+                if mri_frame_path is None:
+                    logger.warning(
+                        "Could not find corresponding MRI frame for patient=%s frame=%s. Skipping control point plot.",
+                        pat.name,
+                        fr.name,
+                    )
+                else:
+                    mri_img = sitk.ReadImage(str(mri_frame_path))
+
+                    coords_for_plot = _flatten_control_points(control_points.points)
+
+                    plot_file = control_points_plot_dir / f"{pat.name}_{frame_key}_control_points.png"
+
+                    plot_control_points_on_mri_slice(
+                        mri_img=mri_img,
+                        coords=coords_for_plot,
+                        key=f"{pat.name} | {frame_key}",
+                        out_file=plot_file,
+                        z_slice=None,
+                        tol=1.0,
+                    )
+
+                    logger.info("Saved control point plot to %s", plot_file)
+
+                # save 
                 frame_coords = _serialize_points(
                     control_points.points,
                     control_points.labels,
