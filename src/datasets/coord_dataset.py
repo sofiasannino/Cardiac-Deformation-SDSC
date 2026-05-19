@@ -19,20 +19,25 @@ from hydra.core.hydra_config import HydraConfig
 
 
 
-def plot_dataset_case(dataset, key,  out_file, z_slice=None, tol=1.0):
-    data, coords, properties = dataset.load_case(key)
+def plot_dataset_case(data, coords, key, out_file, z_slice=None, tol=1.0):
+    """
+    Plot one 2D z-slice of a 3D frame with coordinates overlaid.
 
-    # data: [1, D, H, W]
-    img = data[0]
+    data:   [1, D, H, W]
+    coords: [K, 3] in [x, y, z] continuous voxel indexes
+    """
+
+    img = data[0]  # [D, H, W]
     D, H, W = img.shape
 
-    # coords: [K, 3] = [x, y, z]
     x = coords[:, 0]
     y = coords[:, 1]
     z = coords[:, 2]
 
     if z_slice is None:
         z_slice = int(np.round(np.mean(z)))
+
+    z_slice = int(np.clip(z_slice, 0, D - 1))
 
     keep = np.abs(z - z_slice) <= tol
 
