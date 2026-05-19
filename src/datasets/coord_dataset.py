@@ -8,8 +8,43 @@ import warnings
 import SimpleITK as sitk
 import numpy as np
 import torch
+import matplotlib.pyplot as plt 
 from threadpoolctl import threadpool_limits
 from batchgenerators.dataloading.data_loader import DataLoader
+
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from hydra.core.hydra_config import HydraConfig
+
+
+
+
+def plot_dataset_case(dataset, key,  out_file, z_slice=None, tol=1.0):
+    data, coords, properties = dataset.load_case(key)
+
+    # data: [1, D, H, W]
+    img = data[0]
+    D, H, W = img.shape
+
+    # coords: [K, 3] = [x, y, z]
+    x = coords[:, 0]
+    y = coords[:, 1]
+    z = coords[:, 2]
+
+    if z_slice is None:
+        z_slice = int(np.round(np.mean(z)))
+
+    keep = np.abs(z - z_slice) <= tol
+
+    plt.figure(figsize=(7, 7))
+    plt.imshow(img[z_slice], cmap="gray")
+    plt.scatter(x[keep], y[keep], s=6, c="red", alpha=0.7)
+
+    plt.title(f"{key} | z={z_slice} | points={int(keep.sum())}")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.savefig(out_file, dpi=200)
+    plt.close()
 
 
 class nnUNetBaseDataset(ABC):
@@ -64,6 +99,8 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
         self.K = points_per_label*3 # total number of control points
         if max_num_patients is not None:
             self.identifiers = dict(list(self.identifiers.items())[:(max_num_patients*num_frames_per_patient)])
+        for identifier in self.identifiers:
+            print(f"The frames are : {identifier["patient"]}, frame : {identifier["frame_id"]}" )
         
     def __getitem__(self, identifier):
         return self.load_case(identifier)
@@ -202,7 +239,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 class nnUNetDataLoaderCoord(DataLoader):
     def __init__(self,
                  data: nnUNetDatasetCoord,
-                 batch_size: int,
+                 batch_size: int = 1,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  transforms=None):
 
@@ -218,6 +255,9 @@ class nnUNetDataLoaderCoord(DataLoader):
     def generate_train_batch(self):
 
         selected_keys = self.get_indices()
+        print(f"Selected keys: {selected_keys}")
+
+
         # preallocate output tensors in final patch size and write transformed samples directly
         data_all = None
         coords_all = None
@@ -275,3 +315,54 @@ class nnUNetDataLoaderCoord(DataLoader):
                     coords_all[j] = coords_sample
                     
         return {'data': data_all, 'coords': coords_all, 'keys': selected_keys}
+    
+
+
+@hydra.main(version_base=None, config_path="../configs/dataset", config_name="debug_dataset")
+def main(config: DictConfig):
+    print(OmegaConf.to_yaml(config))
+
+    output_dir = Path(HydraConfig.get().runtime.output_dir)
+    plots_dir = output_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    toy_dataset = nnUNetDatasetCoord(
+        folder=config.dataset.folder,
+        labels=tuple(config.dataset.labels),
+        points_per_label=config.dataset.points_per_label,
+        max_num_patients=config.dataset.max_num_patients,
+        num_frames_per_patient=config.dataset.num_frames_per_patient,
+    )
+
+    selected_keys = list(toy_dataset.identifiers.keys())
+
+    print(f"Number of selected dataset keys: {len(selected_keys)}")
+    print(f"Saving plots in: {plots_dir}")
+
+    for key in selected_keys:
+        data, coords, properties = toy_dataset.load_case(key)
+
+        entry = toy_dataset.identifiers[key]
+        patient = entry["patient"]
+        frame_id = entry["frame_id"]
+
+        out_file = plots_dir / f"{patient}_{frame_id}_{key}.png"
+
+        plot_dataset_case(
+            data=data,
+            coords=coords,
+            key=key,
+            out_file=out_file,
+            z_slice=config.plot.z_slice,
+            tol=config.plot.tol,
+        )
+
+        print(f"Saved {out_file}")
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+

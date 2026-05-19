@@ -1,0 +1,16 @@
+run_name: debug/debug_dataset
+
+dataset:
+  folder: /home/renku/work/cardiac_deformation_final_dataset
+  labels: [1, 2, 3]
+  points_per_label: 1562
+  max_num_patients: 3
+  num_frames_per_patient: 20
+
+plot:
+  z_slice: null
+  tol: 1.0
+
+hydra:
+  run:
+    dir: ${run_name}

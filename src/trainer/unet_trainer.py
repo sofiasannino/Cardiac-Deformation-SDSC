@@ -432,7 +432,7 @@ class nnUNetTrainerCoord():
         #pass # check 
 
     def _build_loss(self) : 
-        return nn.HuberLoss(reduction="mean", delta = 0.02) # delta adjusted to normalized coordinates 
+        return nn.HuberLoss(reduction="none", delta = 0.05) # delta adjusted to normalized coordinates 
     '''
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
         """
@@ -462,13 +462,10 @@ class nnUNetTrainerCoord():
         #pass
     '''
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                    momentum=0.99, nesterov=True)
+        optimizer = torch.optim.Adam(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
 
-    #def plot_network_architecture(self):
-       # pass
     def generate_crossval_split(self, train_identifiers: List[str], seed=12345, n_splits=5) -> List[dict[str, List[str]]]:
         splits = []
         kfold = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
@@ -1021,7 +1018,12 @@ class nnUNetTrainerCoord():
                 raise RuntimeError(f"Output and target shapes do not match. "
                                   f"output={output.shape}, target={target.shape}")
         # del data --->   
-        l = self.loss(output, target)
+        l = self.loss(output, target) # [B, K, 3] 
+
+        # reducing wrt landmarks 
+        l = l.sum(dim=-1) # [B, K]
+        l = l.mean(dim = 1) # [B]
+        l = l.mean()
 
         if self.grad_scaler is not None:
             self.grad_scaler.scale(l).backward()
