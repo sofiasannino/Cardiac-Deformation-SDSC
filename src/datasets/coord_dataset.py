@@ -318,7 +318,7 @@ class nnUNetDataLoaderCoord(DataLoader):
     
 
 
-@hydra.main(version_base=None, config_path="../configs/dataset", config_name="debug_dataset")
+@hydra.main(version_base=None, config_path="../configs/datasets", config_name="debug_dataset")
 def main(config: DictConfig):
     print(OmegaConf.to_yaml(config))
 
