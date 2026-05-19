@@ -100,7 +100,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
         if max_num_patients is not None:
             self.identifiers = dict(list(self.identifiers.items())[:(max_num_patients*num_frames_per_patient)])
         for key in self.identifiers.keys():
-            print(f"The frames are : {self.identifiers[key]["patient"]}, frame : {self.identifiers[key]["frame_id"]}" )
+            print( f"The frames are : {self.identifiers[key]['patient']}, "f"frame : {self.identifiers[key]['frame_id']}")
         
     def __getitem__(self, identifier):
         return self.load_case(identifier)
