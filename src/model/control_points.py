@@ -698,7 +698,7 @@ def main(config):
     if test: 
         logger.info("Running test mode")
         toy_mask = sitk.ReadImage(
-            "/home/renku/work/cardiac_deformation_final_dataset/patient021/labels/patient021_iframe0001.nii.gz",
+            "/home/renku/work/cardiac_deformation_final_dataset/patient021/labels/patient021_iframe0004.nii.gz",
             sitk.sitkUInt8
         )
         control_points.ExtractPoints(toy_mask)

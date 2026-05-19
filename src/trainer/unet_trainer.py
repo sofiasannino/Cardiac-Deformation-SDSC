@@ -1020,7 +1020,7 @@ class nnUNetTrainerCoord():
         if output.shape != target.shape:
                 raise RuntimeError(f"Output and target shapes do not match. "
                                   f"output={output.shape}, target={target.shape}")
-        # del data ---> DO TAB LATER 
+        # del data --->   
         l = self.loss(output, target)
 
         if self.grad_scaler is not None:

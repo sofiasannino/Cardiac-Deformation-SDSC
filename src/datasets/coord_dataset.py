@@ -121,7 +121,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 
     @staticmethod
     def save_case(data, seg, properties, output_filename_truncated):
-        raise NotImplementedError("Coordinate dataset does not save cases.")
+        raise NotImplementedError("Coordinate dataset does not save cases for now")
    
 
     @staticmethod
@@ -207,7 +207,7 @@ class nnUNetDataLoaderCoord(DataLoader):
                  transforms=None):
 
         super().__init__(data, 1 , 1, None, True,
-                         True, False , sampling_probabilities) # batch_size = 1
+                         False , True , sampling_probabilities) # batch_size = 1
 
 
         # this is used by DataLoader for sampling train cases!
