@@ -99,8 +99,8 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
         self.K = points_per_label*3 # total number of control points
         if max_num_patients is not None:
             self.identifiers = dict(list(self.identifiers.items())[:(max_num_patients*num_frames_per_patient)])
-        for identifier in self.identifiers:
-            print(f"The frames are : {identifier["patient"]}, frame : {identifier["frame_id"]}" )
+        for key in self.identifiers.keys():
+            print(f"The frames are : {self.identifiers[key]["patient"]}, frame : {self.identifiers[key]["frame_id"]}" )
         
     def __getitem__(self, identifier):
         return self.load_case(identifier)
