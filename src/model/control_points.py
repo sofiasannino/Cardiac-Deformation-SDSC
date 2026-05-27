@@ -823,7 +823,7 @@ def main(config):
         results = {}
         bad_segmented = {}
 
-        for pat in tqdm(patients_dir, desc="Processing patients"):
+        for pat in tqdm(patients_dir[18:], desc="Processing patients"):
             logger.info("Processing patient %s", pat.name)
 
             labels_dir = pat / "labels"

@@ -1101,6 +1101,10 @@ class nnUNetTrainerCoord():
                     )
 
                 loss = self.loss(coords_pred, coords_gt)
+                # reducing wrt landmarks 
+                loss = loss.sum(dim=-1) # [B, K]
+                loss = loss.mean(dim = 1) # [B]
+                loss = loss.mean()
 
                 # Euclidean error per point in normalized coordinate space
                 point_errors = torch.linalg.norm(coords_pred - coords_gt, dim=-1)  # [B, K]

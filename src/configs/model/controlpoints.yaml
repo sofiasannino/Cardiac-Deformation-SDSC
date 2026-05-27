@@ -6,7 +6,7 @@ extra_iter : 1500
 step : 0.5 # step to go in centroid  direction
 data_path : "/home/renku/work/cardiac_deformation_final_dataset"
 out_json_path : "/home/renku/work/cardiac_deformation_final_dataset"
-test : true 
+test : false  
 
 hydra:
   job:
