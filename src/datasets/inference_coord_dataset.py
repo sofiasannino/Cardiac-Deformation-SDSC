@@ -186,6 +186,9 @@ class nnUNetDataLoaderCoordTest(DataLoader):
         # this is used by DataLoader for sampling train cases!
         self.indices = sorted(list(data.identifiers.keys()))
         self.transforms = transforms
+        
+    def __len__(self):
+        return len(self.indices)
 
 
     def generate_train_batch(self):
