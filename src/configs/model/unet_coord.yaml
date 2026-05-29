@@ -25,6 +25,8 @@ disable_checkpointing: false
 checkpoint_path: /home/renku/work/s3-bucket/nnUNet_results_0/Dataset027_ACDC/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/fold_0/checkpoint_best.pth
 history_json: training_history.json
 
+alpha: 0.0005 #smoothig parameter
+
 hydra:
   job:
     name: unet_coord_runs

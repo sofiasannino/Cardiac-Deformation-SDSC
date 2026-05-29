@@ -7,6 +7,25 @@ from pathlib import Path
 
 
 
+def ema_smooth(values, alpha=0.1):
+    """
+    Exponential moving average smoothing
+    Args:
+        values: list or 1D numpy array
+        alpha: smoothing factor in (0,1)
+        returns smoothed numpy array
+    """
+    values = np.array(values, dtype=float)
+    if len(values) == 0:
+        return values
+
+    ema = np.zeros_like(values)
+    ema[0] = values[0]
+    for i in range(1, len(values)):
+        ema[i] = alpha * values[i] + (1 - alpha) * ema[i-1]
+    return ema
+
+
 def plot_losses(config : omegaconf.DictConfig):
 
     training_history_json = config.history_json
@@ -15,6 +34,7 @@ def plot_losses(config : omegaconf.DictConfig):
          training_history = json.load(f)
 
     epochs_record  = training_history["epochs"]
+    alpha = config.alpha
 
     epochs = []
     train_losses = []
@@ -35,6 +55,12 @@ def plot_losses(config : omegaconf.DictConfig):
     val_losses = np.asarray(val_losses)
     point_errors = np.asarray(point_errors)
     epoch_times = np.asarray(epoch_times)
+
+    # smooth for visualization
+    train_losses = ema_smooth(train_losses, alpha)
+    val_losses = ema_smooth(val_losses, alpha)
+    point_errors = ema_smooth(point_errors, alpha)
+
 
     plt.figure()
     plt.plot(epochs, train_losses, color="green", label="Train loss")
