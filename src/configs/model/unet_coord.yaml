@@ -9,7 +9,7 @@ is_ddp: false
 cuda_device_index: 0
 
 fold: 0
-dataset_folder: /home/renku/work/cardiac_deformation_final_dataset
+dataset_folder: /home/renku/work/s3-bucket/cardiac_deformation_final_dataset
 
 initial_lr: 0.001
 weight_decay: 0.00003
@@ -22,12 +22,14 @@ current_epoch: 0
 
 save_every: 1
 disable_checkpointing: false
-checkpoint_path: /home/renku/work/nnUNet_results_0/Dataset027_ACDC/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/fold_0/checkpoint_best.pth
+checkpoint_path: /home/renku/work/s3-bucket/nnUNet_results_0/Dataset027_ACDC/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/fold_0/checkpoint_best.pth
 history_json: training_history.json
+
+alpha: 0.0005 #smoothig parameter
 
 hydra:
   job:
     name: unet_coord_runs
     chdir: true
   run:
-    dir: /home/renku/work/OUTPUTS/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: /home/renku/work/s3-bucket/OUTPUTS/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
