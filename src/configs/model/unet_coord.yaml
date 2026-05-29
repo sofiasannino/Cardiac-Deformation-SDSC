@@ -1,4 +1,4 @@
-max_num_patients: 30
+max_num_patients: 60 #
 batch_size: 1
 K: 1562 # points per label
 pool_size: 2 # avg pooling in coordinate head 
@@ -8,7 +8,7 @@ enable_deep_supervision: false
 is_ddp: false
 cuda_device_index: 0
 
-fold: 0
+fold: 0 #
 dataset_folder: /home/renku/work/s3-bucket/cardiac_deformation_final_dataset
 
 initial_lr: 0.001
@@ -17,7 +17,7 @@ oversample_foreground_percent: 0.0
 probabilistic_oversampling: false
 num_train_iterations_per_epoch: 250
 num_val_iterations_per_epoch: 50
-num_epochs: 100
+num_epochs: 100 #
 current_epoch: 0
 
 save_every: 1
@@ -25,7 +25,8 @@ disable_checkpointing: false
 checkpoint_path: /home/renku/work/s3-bucket/nnUNet_results_0/Dataset027_ACDC/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/fold_0/checkpoint_best.pth
 history_json: training_history.json
 
-alpha: 0.0005 #smoothig parameter
+alpha_1: 0.0001 #smoothing parameter losses
+alpha_2: 0.0005 #smoothing parameter euclidean error
 
 hydra:
   job:

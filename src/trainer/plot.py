@@ -34,7 +34,8 @@ def plot_losses(config : omegaconf.DictConfig):
          training_history = json.load(f)
 
     epochs_record  = training_history["epochs"]
-    alpha = config.alpha
+    alpha_1 = config.alpha_1
+    alpha_2 = config.alpha_2
 
     epochs = []
     train_losses = []
@@ -57,9 +58,9 @@ def plot_losses(config : omegaconf.DictConfig):
     epoch_times = np.asarray(epoch_times)
 
     # smooth for visualization
-    train_losses = ema_smooth(train_losses, alpha)
-    val_losses = ema_smooth(val_losses, alpha)
-    point_errors = ema_smooth(point_errors, alpha)
+    train_losses = ema_smooth(train_losses, alpha_1)
+    val_losses = ema_smooth(val_losses, alpha_1)
+    point_errors = ema_smooth(point_errors, alpha_2)
 
 
     plt.figure()
