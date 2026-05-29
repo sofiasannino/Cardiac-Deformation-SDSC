@@ -93,5 +93,75 @@ def plot_losses(config : omegaconf.DictConfig):
     out_path_errors = Path(HydraConfig.get().runtime.output_dir) / "errors.png" 
     plt.savefig(out_path_errors, dpi = 300, bbox_inches = "tight")
 
+
+
+
+def plot_losses_test(results: dict,
+    output_subdir: str = "inference_metric_plots",
+):
+    """
+    Load inference_outputs.json and plot, for each sample key:
+        - loss
+        - mean_point_error_normalized
+        - mean_point_error_voxel
+    """
+    output_dir = Path(HydraConfig.get().runtime.output_dir)
+
+    samples = results.get("samples", [])
+
+    if len(samples) == 0:
+        raise RuntimeError("No samples found in %s. Skipping metric plots.", json_path)
+
+    samples = sorted(
+        samples,
+        key=lambda s: (
+            s.get("batch_id", 0),
+            s.get("sample_index_in_batch", 0),
+        ),
+    )
+
+    keys = [str(s["key"]) for s in samples]
+
+    metrics = {
+        "loss": [s["loss"] for s in samples],
+        "mean_point_error_normalized": [
+            s["mean_point_error_normalized"] for s in samples
+        ],
+        "mean_point_error_voxel": [
+            s["mean_point_error_voxel"] for s in samples
+        ],
+    }
+
+    plot_dir = output_dir / output_subdir
+    plot_dir.mkdir(parents=True, exist_ok=True)
+
+    x = np.arange(len(keys))
+
+    # avoid unreadable x-axis if many samples
+    #max_labels = 30
+    #label_step = max(1, len(keys) // max_labels)
+
+    for metric_name, values in metrics.items():
+        plt.figure(figsize=(max(10, len(keys) * 0.35), 5))
+
+        plt.plot(x, values, marker="o", linewidth=1)
+
+        #plt.xticks(
+         #   x[::label_step],
+        #    [keys[i] for i in x[::label_step]],
+        #    rotation=90,)
+
+        plt.xlabel("Test frames")
+        plt.ylabel(metric_name)
+        plt.title(f"{metric_name} per test sample")
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+        out_file = plot_dir / f"{metric_name}_per_key.png"
+        plt.savefig(out_file, dpi=200)
+        plt.close()
+
+        print(f"Saved {metric_name} plot to: {out_file}")
+
          
 
