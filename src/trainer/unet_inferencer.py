@@ -152,9 +152,9 @@ class UNetInferencerCoord():
                         f"coords_pred={coords_pred.shape}, coords_gt={coords_gt.shape}"
                     )
 
-                loss = self.loss(coords_pred, coords_gt)
+                loss_raw = self.loss(coords_pred, coords_gt) #[B, K, 3]
+                
                 # reducing wrt landmarks 
-                loss_raw = loss.sum(dim=-1) # [B, K]
                 per_sample_loss = loss_raw.sum(dim=-1).mean(dim=1)  # [B]
                 loss = per_sample_loss.mean()
 
