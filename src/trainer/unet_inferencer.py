@@ -43,8 +43,9 @@ class UNetInferencerCoord():
         dataset_test = self.test_dataset
         test_dataloader = nnUNetDataLoaderCoordTest(dataset_test, 
                                                 self.batch_size)
+        num_batches = len(test_dataloader)
         dl_test = SingleThreadedAugmenter(test_dataloader, None)
-        return dl_test
+        return dl_test, num_batches
     
     def build_network_architecture(self) -> nn.Module:
         
@@ -257,8 +258,7 @@ class UNetInferencerCoord():
         logger.info("Start running inference with U-Net coordinate regression model")
         self.network.eval() 
         
-        dl_test = self.get_dataloader()
-        num_it = len(dl_test)
+        dl_test, num_it = self.get_dataloader()
 
         logger.info(f"Number of inference frames: {num_it}")
 
