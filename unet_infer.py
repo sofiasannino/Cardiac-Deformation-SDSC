@@ -10,7 +10,7 @@ def main(config) :
     # define inferencer
     unet_trainer = UNetInferencerCoord(config, device = "cuda")
 
-    # run training 
+    # run inference 
     results = unet_trainer.run_inference()
 
     # plot losses 

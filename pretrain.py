@@ -15,7 +15,7 @@ def parse_es_from_info_cfg(cfg_path: Path) -> int:
     """
     Parse ACDC Info.cfg and return ES as a 1-based frame index.
     Supports both 'ES: 12' and 'ES=12'.
-    Assumes ED is always 1.
+    Assumes ED is always 1
     """
     es = None
 
@@ -105,7 +105,7 @@ def interpolate_4d_volumes_keep_ed_es(
             f"Check target_length={target_length} and ES={es_index_1based}."
         )
 
-    # Segment 1: ED -> ES
+    # Segment 1: ED to  ES
     left_grid = np.linspace(ed0, es0, new_es0 + 1)
     for i, m in enumerate(left_grid):
         if float(m).is_integer():
@@ -120,7 +120,7 @@ def interpolate_4d_volumes_keep_ed_es(
     new_clip[..., new_ed0] = data[..., ed0]
     new_clip[..., new_es0] = data[..., es0]
 
-    # Segment 2: ES -> end of cycle
+    # Segment 2: ES to end of cycle
     right_len = target_length - new_es0
     if right_len > 1:
         right_grid = np.linspace(es0, T - 1, right_len)
@@ -234,7 +234,7 @@ def create_test_files(
     save_metadata: bool = True
 ) -> None:
     """
-    Create nnU-Net inference inputs from ACDC training 4D cine volumes.
+    Create nnU-Net inference inputs from ACDC training 4D cine volumes
 
     For each patient:
       - read ES from Info.cfg
@@ -243,7 +243,7 @@ def create_test_files(
       - save only non-ED/non-ES interpolated frames as separate 3D files:
             patientXXX_iframe0002_0000.nii.gz
 
-    The output naming follows nnU-Net single-channel inference convention.
+    The output naming follows nnU-Net single-channel inference convention
     """
     training_dir = src_data_folder / "training"
     if not training_dir.exists():
@@ -342,12 +342,12 @@ def main(cfg: DictConfig):
 
     # run inference on intermediate frames 
 
-    #script_path = Path(cfg.script.path).resolve()
+    script_path = Path(cfg.script.path).resolve()
 
-    #subprocess.run(
-    #    ["bash", str(script_path)],
-    #    check=True
-    #)
+    subprocess.run(
+        ["bash", str(script_path)],
+        check=True
+    )
 
     # reconfigure dataset for training
     reconfigure_acdc(Path(cfg.final_dataset_directory), Path(cfg.test_dir_pp), Path(cfg.test_dir), Path(cfg.acdc_training_root), int(cfg.num_patients)) 

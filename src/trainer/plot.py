@@ -138,18 +138,18 @@ def plot_losses_test(results: dict,
     x = np.arange(len(keys))
 
     # avoid unreadable x-axis if many samples
-    #max_labels = 30
-    #label_step = max(1, len(keys) // max_labels)
+    max_labels = 30
+    label_step = max(1, len(keys) // max_labels)
 
     for metric_name, values in metrics.items():
         plt.figure(figsize=(max(10, len(keys) * 0.35), 5))
 
         plt.plot(x, values, marker="o", linewidth=1)
 
-        #plt.xticks(
-         #   x[::label_step],
-        #    [keys[i] for i in x[::label_step]],
-        #    rotation=90,)
+        plt.xticks(
+            x[::label_step],
+            [keys[i] for i in x[::label_step]],
+            rotation=90,)
 
         plt.xlabel("Test frames")
         plt.ylabel(metric_name)

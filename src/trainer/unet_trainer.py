@@ -53,7 +53,9 @@ class nnUNetTrainerCoord():
         self.K = config.K
         self.pool_size = config.pool_size
         self.hidden_coord = config.hidden_coord
-       
+        self.ld_checkpoint = config.ld_checkpoint
+        self.tr_checkpoint_path = config.tr_checkpoint_path
+        self.tr_checkpoint_path_best = config.tr_checkpoint_path_best
 
         
         self.is_ddp = config.is_ddp # we cannot distribute GPUs right now 
@@ -1311,6 +1313,32 @@ class nnUNetTrainerCoord():
         )
 
         logger.info(f"Loaded checkpoint from epoch {self.current_epoch}")
+    def copy_best_checkpoint_to_current_run(self):
+        if not hasattr(self, "tr_checkpoint_path_best"):
+            return
+
+        best_src = Path(self.tr_checkpoint_path_best)
+
+        if not best_src.exists():
+            logging.warning(f"Best checkpoint not found: {best_src}")
+            return
+
+        output_dir = Path(HydraConfig.get().runtime.output_dir)
+        best_dst = output_dir / "checkpoint_best.pth"
+
+        shutil.copy2(best_src, best_dst)
+        logging.info(f"Copied previous best checkpoint to current run: {best_dst}")
+
+        # optional: recover best metric from the old best checkpoint
+        best_checkpoint = torch.load(
+            best_src,
+            map_location=self.device,
+            weights_only=False,
+        )
+
+        if "_best_ema" in best_checkpoint:
+            self._best_ema = best_checkpoint["_best_ema"]
+            logging.info(f"Loaded previous best EMA: {self._best_ema}")
 
     def perform_actual_validation(self, save_probabilities: bool = False):
         "not implemented for coordinate regression, as we do not save probabilities but coordinates"
@@ -1318,6 +1346,12 @@ class nnUNetTrainerCoord():
 
     def run_training(self):
         self.on_train_start()
+
+        if self.ld_checkpoint : 
+            logging.info(f"Loading previous training checkpoint")
+            self.load_checkpoint(self.tr_checkpoint_path)
+            logging.info("Preparing previous best checkpoint in current Hydra run folder")
+            self.copy_best_checkpoint_to_current_run()
 
         logging.info(f"Start running U-NET FOR COORDINATE REGRESSION MODEL ")
 
