@@ -47,7 +47,7 @@ def main(config):
 
         seen_patients.add(patient)
 
-        if len(seen_patients) >= config.num_patients:
+        if len(seen_patients) >= config.max_num_patients:
             break
 
     Ds = np.asarray(Ds, dtype=np.float32)
