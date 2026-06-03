@@ -15,14 +15,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 @hydra.main(version_base=None, config_path="src/configs", config_name="cardiodeform_model")
 def main(config):
-    """
-    Main script for training. Instantiates the model, optimizer, scheduler,
-    metrics, logger, writer, and dataloaders. Runs Trainer to train and
-    evaluate the model.
-
-    Args:
-        config (DictConfig): hydra experiment config.
-    """
+    '''Test control points'''
     
     control_points = ControlPoints(config.model)
     toy_mask = sitk.ReadImage("/home/renku/work/s3-bucket/ACDC/training/patient001/patient001_frame01_gt.nii.gz", sitk.sitkUInt8)
