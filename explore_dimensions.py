@@ -7,6 +7,7 @@ from omegaconf import OmegaConf
 import hydra
 from hydra.core.hydra_config import HydraConfig
 import logging 
+from scipy.stats import mode
 
 from src.trainer.unet_trainer import nnUNetTrainerCoord
 from src.datasets.coord_dataset import nnUNetDatasetCoord
@@ -39,7 +40,7 @@ def main(config):
         # data shape: [C, D, H, W]
         C, D, H, W = data.shape
 
-        print(f"Patient = {patient}, key = {key}, C = {C}, D = {D}, H = {H}, W = {W}")
+        logger.info(f"Patient = {patient}, key = {key}, C = {C}, D = {D}, H = {H}, W = {W}")
 
         Ds.append(D)
         Hs.append(H)
@@ -53,6 +54,19 @@ def main(config):
     Ds = np.asarray(Ds, dtype=np.float32)
     Hs = np.asarray(Hs, dtype=np.float32)
     Ws = np.asarray(Ws, dtype=np.float32)
+
+    # print info
+    logger.info(f"median D : {np.median(Ds)}")
+    logger.info(f"median H : {np.median(Hs)}")
+    logger.info(f"median W : {np.median(Ws)}")
+    
+
+    mode_D = mode(Ds, keepdims=False).mode
+    mode_H = mode(Hs, keepdims=False).mode
+    mode_W = mode(Ws, keepdims=False).mode
+    logger.info(f"mode D : { mode_D}")
+    logger.info(f"mode H : { mode_H}")
+    logger.info(f"mode W : {mode_W}")
 
     # plot histograms
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
