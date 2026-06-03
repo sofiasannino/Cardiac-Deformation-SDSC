@@ -244,6 +244,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 class nnUNetDataLoaderCoord(DataLoader):
     def __init__(self,
                  data: nnUNetDatasetCoord,
+                 pad_sizes : tuple,
                  batch_size: int = 1,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  transforms=None):
@@ -255,7 +256,50 @@ class nnUNetDataLoaderCoord(DataLoader):
         # this is used by DataLoader for sampling train cases!
         self.indices = sorted(list(data.identifiers.keys()))
         self.transforms = transforms
+        self.D_pad = pad_sizes[0]
+        self.H_pad = pad_sizes[1]
+        self.W_pad = pad_sizes[2]
+    def pad_or_crop_axis(data, coords, axis, target_size):
+        """
+        data: np.ndarray with shape [C, D, H, W]
+        coords: np.ndarray with shape [K, 3] in [z, y, x] order
+        axis: axis in data to pad/crop. Use 1 for D, 2 for H, 3 for W.
+        target_size: desired size along that axis
+        """
 
+        current_size = data.shape[axis]
+        diff = target_size - current_size
+
+        coord_axis = axis - 1  
+
+        if diff > 0:
+            # pad
+            before = diff // 2
+            after = diff - before
+
+            pad_width = [(0, 0)] * data.ndim
+            pad_width[axis] = (before, after)
+
+            data = np.pad(data, pad_width=pad_width, mode="constant", constant_values=0,)
+
+            coords[:, coord_axis] += before
+
+        elif diff < 0:
+            # crop
+            total_crop = -diff
+            before = total_crop // 2
+            after = total_crop - before
+
+            end = current_size - after if after != 0 else current_size
+
+            slices = [slice(None)] * data.ndim
+            slices[axis] = slice(before, end)
+
+            data = data[tuple(slices)]
+
+            coords[:, coord_axis] -= before
+
+        return data, coords
 
     def generate_train_batch(self):
 
@@ -272,21 +316,24 @@ class nnUNetDataLoaderCoord(DataLoader):
                 for j, key in enumerate(selected_keys):
 
                     data, coords, properties = self._data.load_case(key)
-                    # data must already be numpy 
-                    data = np.asarray(data, dtype=np.float32) # [C, D, H, W]
 
-                    
-                    coords = np.asarray(coords, dtype=np.float32) # [x, y, z]
+                    data = np.asarray(data, dtype=np.float32)  # [C, D, H, W]
+                    coords = np.asarray(coords, dtype=np.float32)  # [x, y, z]
 
                     if coords.ndim != 2 or coords.shape[1] != 3:
                         raise RuntimeError(f"Expected coords shape [K, 3], got {coords.shape} for {key}")
 
-                    # convert [x, y, z] to  [z, y, x]
+                    # convert [x, y, z] to [z, y, x]
                     coords = coords[:, [2, 1, 0]]
 
-                    # normalize coords in [0, 1] using data shape [C, D, H, W]
-                    C, D, H, W = data.shape
+                    # pad/crop data and update coords
+                    data, coords = self.pad_or_crop_axis(data, coords, axis=1, target_size=self.D_pad)
+                    data, coords = self.pad_or_crop_axis(data, coords, axis=2, target_size=self.H_pad)
+                    data, coords = self.pad_or_crop_axis(data, coords, axis=3, target_size=self.W_pad)
 
+                    C, D, H, W = data.shape
+                    
+                    # normalize 
                     coords[:, 0] = coords[:, 0] / (D - 1)
                     coords[:, 1] = coords[:, 1] / (H - 1)
                     coords[:, 2] = coords[:, 2] / (W - 1)
@@ -320,6 +367,7 @@ class nnUNetDataLoaderCoord(DataLoader):
                     coords_all[j] = coords_sample
                     
         return {'data': data_all, 'coords': coords_all, 'keys': selected_keys}
+
     
 
 

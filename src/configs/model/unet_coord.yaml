@@ -5,6 +5,11 @@ pool_size: 6 # avg pooling dimension in coordinate head
 hidden_coord: 256
 enable_deep_supervision: false
 
+# padding 
+D : 10
+H : 256
+W : 256
+
 is_ddp: false
 cuda_device_index: 0
 
@@ -15,11 +20,11 @@ initial_lr: 0.001
 weight_decay: 0.00003
 oversample_foreground_percent: 0.0
 probabilistic_oversampling: false
-num_train_iterations_per_epoch: 250
-num_val_iterations_per_epoch: 50
+#num_train_iterations_per_epoch: 250
+#num_val_iterations_per_epoch: 50
 num_epochs: 50 #
 current_epoch: 0
-ld_checkpoint : true
+ld_checkpoint : false
 tr_checkpoint_path : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_10-55-19/checkpoint_latest.pth
 tr_checkpoint_path_best : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_10-55-19/checkpoint_best.pth
 save_every: 1
