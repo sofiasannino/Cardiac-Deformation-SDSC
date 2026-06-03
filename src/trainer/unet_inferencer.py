@@ -238,16 +238,18 @@ class UNetInferencerCoord():
 
         z_slice = int(np.clip(z_slice, 0, D - 1))
 
-        keep = np.abs(z - z_slice) <= tol
+        #keep = np.abs(z - z_slice) <= tol
 
         out_file = Path(out_file)
         out_file.parent.mkdir(parents=True, exist_ok=True)
 
         plt.figure(figsize=(7, 7))
         plt.imshow(volume[z_slice], cmap="gray")
-        plt.scatter(x[keep], y[keep], s=6, c="red", alpha=0.7)
+        #plt.scatter(x[keep], y[keep], s=6, c="red", alpha=0.7)
+        plt.scatter(x, y, s=6, c="red", alpha=0.7)
 
-        plt.title(f"Test on {key} | z={z_slice} | points={int(keep.sum())}")
+        #plt.title(f"Test on {key} | z={z_slice} | points={int(keep.sum())}")
+        plt.title(f"Test on {key} | z={z_slice} | all points projected")
         plt.axis("off")
         plt.tight_layout()
         plt.savefig(out_file, dpi=200)
