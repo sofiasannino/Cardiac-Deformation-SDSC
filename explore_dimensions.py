@@ -23,7 +23,7 @@ def main(config):
     Hs = []
     Ws = []
 
-    for i in range(config.num_patients):
+    for i in range(config.max_num_patients):
 
        
         batch = next(mt_gen_train)
