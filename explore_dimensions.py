@@ -24,30 +24,32 @@ def main(config):
     Hs = []
     Ws = []
 
-    for i in range(config.num_patients):
+    seen_patients = set()
 
-       
-        batch = next(mt_gen_train)
-        data = batch["data"]
-        if isinstance(data, torch.Tensor):
-            shape = tuple(data.shape)
-        else:
-            shape = data.shape
+    dataset = mt_gen_train._data   
 
-        if len(shape) == 4:
-            C, D, H, W = shape
-        elif len(shape) == 5:
-            B, C, D, H, W = shape
-        else:
-            raise ValueError(f"Unexpected data shape: {shape}")
+    for key, entry in dataset.identifiers.items():
+        patient = entry["patient"]
 
-        print(f"Sample {i}: C = {C}, D = {D}, H = {H}, W = {W}")
+        
+        if patient in seen_patients:
+            continue
+
+        data, coords, properties = dataset.load_case(key)
+
+        # data shape: [C, D, H, W]
+        C, D, H, W = data.shape
+
+        print(f"Patient = {patient}, key = {key}, C = {C}, D = {D}, H = {H}, W = {W}")
 
         Ds.append(D)
         Hs.append(H)
         Ws.append(W)
-        for _ in range(config.number_frames - 1):
-            next(mt_gen_train)
+
+        seen_patients.add(patient)
+
+        if len(seen_patients) >= config.num_patients:
+            break
 
     Ds = np.asarray(Ds, dtype=np.float32)
     Hs = np.asarray(Hs, dtype=np.float32)
