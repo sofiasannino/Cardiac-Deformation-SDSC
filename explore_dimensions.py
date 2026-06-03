@@ -9,16 +9,14 @@ from hydra.core.hydra_config import HydraConfig
 import logging 
 
 from src.trainer.unet_trainer import nnUNetTrainerCoord
+from src.datasets.coord_dataset import nnUNetDatasetCoord
 logger = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="src/configs/model", config_name="debug")
 def main(config):
 
-    # define trainer
-    unet_trainer = nnUNetTrainerCoord(config, device="cuda")
+   
 
-    # get dataloader
-    mt_gen_train, _ = unet_trainer.get_dataloaders()
 
     Ds = []
     Hs = []
@@ -26,7 +24,8 @@ def main(config):
 
     seen_patients = set()
 
-    dataset = mt_gen_train._data   
+    dataset = nnUNetDatasetCoord(config.dataset_folder,
+            identifiers=None, max_num_patients=config.max_num_patients, num_frames_per_patient=config.number_frames)  
 
     for key, entry in dataset.identifiers.items():
         patient = entry["patient"]
