@@ -108,7 +108,7 @@ class ControlPoints:
         self.points = converted_points
 
     def GetSphericalDirections(self) -> List[Direction]:
-        """Sample directions on the sphere."""
+        """Sample directions on the sphere"""
         logger.info("Sampling spherical directions")
 
         theta = np.linspace(0, np.pi, num=self.theta_num)
@@ -823,7 +823,7 @@ def main(config):
         results = {}
         bad_segmented = {}
 
-        for pat in tqdm(patients_dir[18:], desc="Processing patients"):
+        for pat in tqdm(patients_dir, desc="Processing patients"):
             logger.info("Processing patient %s", pat.name)
 
             labels_dir = pat / "labels"
@@ -909,7 +909,7 @@ def main(config):
                 # convert physical coordinates to continuous index coordinates
                 control_points.ConvertPointsToContinuousIndex(fr_img)
 
-                # plot control points on the corresponding original MRI frame, not on the mask
+                # plot control points on the corresponding original MRI frame
                 frame_key = _frame_name(fr)
 
                 mri_frame_path = _find_corresponding_mri_frame(pat, fr)

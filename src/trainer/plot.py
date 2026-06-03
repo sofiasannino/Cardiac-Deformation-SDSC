@@ -28,8 +28,8 @@ def ema_smooth(values, alpha=0.1):
 
 def plot_losses(config : omegaconf.DictConfig):
 
+    #training_history_json = Path('/home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-01_11-53-33/training_history.json')
     training_history_json = config.history_json
-
     with open(training_history_json, "r", encoding = "utf-8" ) as f: 
          training_history = json.load(f)
 
@@ -135,20 +135,20 @@ def plot_losses_test(results: dict,
     plot_dir = output_dir / output_subdir
     plot_dir.mkdir(parents=True, exist_ok=True)
 
-    x = np.arange(len(keys))
+    x = np.arange(len(keys[:50]))
 
     # avoid unreadable x-axis if many samples
-    max_labels = 30
-    label_step = max(1, len(keys) // max_labels)
+    max_labels = 10
+    label_step = max(1, len(keys[:50]) // max_labels)
 
     for metric_name, values in metrics.items():
-        plt.figure(figsize=(max(10, len(keys) * 0.35), 5))
+        plt.figure(figsize=(max(10, len(keys[:50]) * 0.35), 5))
 
-        plt.plot(x, values, marker="o", linewidth=1)
+        plt.plot(x[:50], values[:50], marker="o", linewidth=1)
 
         plt.xticks(
             x[::label_step],
-            [keys[i] for i in x[::label_step]],
+            [(keys[:50])[i] for i in x[::label_step]],
             rotation=90,)
 
         plt.xlabel("Test frames")

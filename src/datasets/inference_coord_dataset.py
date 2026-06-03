@@ -15,12 +15,13 @@ from batchgenerators.dataloading.data_loader import DataLoader
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from hydra.core.hydra_config import HydraConfig
+import logging
 
 
 
 from src.datasets.coord_dataset import nnUNetBaseDataset
 
-
+logger = logging.getLogger(__name__)
 
 ### Coord dataset test
 
@@ -35,7 +36,7 @@ class nnUNetDatasetCoordTest(nnUNetBaseDataset):
         else : 
             raise RuntimeError(f"Not initialising test dataset properly")
         for key in self.identifiers.keys():
-            print( f"The frames are : {self.identifiers[key]['patient']}, "f"frame : {self.identifiers[key]['frame_id']}")
+            logger.info( f"The frames are : {self.identifiers[key]['patient']}, "f"frame : {self.identifiers[key]['frame_id']}")
         
     def __getitem__(self, identifier):
         return self.load_case(identifier)
@@ -156,7 +157,7 @@ class nnUNetDatasetCoordTest(nnUNetBaseDataset):
                     continue
 
                 # key includes patient name + progressive id after skipped patients
-                key = f"{patient_name}_{current_id:05d}"
+                key = f"{patient_name}_{frame_id}_{current_id:05d}"
 
                 identifiers[key] = {
                     "patient": patient_name,

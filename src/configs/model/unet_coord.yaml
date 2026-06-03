@@ -1,7 +1,7 @@
 max_num_patients: 60 #
 batch_size: 1
 K: 1562 # points per label
-pool_size: 2 # avg pooling in coordinate head 
+pool_size: 8 # avg pooling dimension in coordinate head 
 hidden_coord: 256
 enable_deep_supervision: false
 
@@ -17,18 +17,18 @@ oversample_foreground_percent: 0.0
 probabilistic_oversampling: false
 num_train_iterations_per_epoch: 250
 num_val_iterations_per_epoch: 50
-num_epochs: 100 #
+num_epochs: 50 #
 current_epoch: 0
 ld_checkpoint : true
-tr_checkpoint_path : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-01_10-06-08/checkpoint_latest.pth 
-tr_checkpoint_path_best : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-01_10-06-08/checkpoint_best.pth
+tr_checkpoint_path : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_09-38-00/checkpoint_latest.pth 
+tr_checkpoint_path_best : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_09-38-00/checkpoint_best.pth
 save_every: 1
 disable_checkpointing: false
 checkpoint_path: /home/renku/work/s3-bucket/nnUNet_results_0/Dataset027_ACDC/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/fold_0/checkpoint_best.pth
 history_json: training_history.json
 
-alpha_1: 0.0001 #smoothing parameter losses
-alpha_2: 0.0005 #smoothing parameter euclidean error
+alpha_1: 0.2 #smoothing parameter losses
+alpha_2: 0.1 #smoothing parameter euclidean error
 
 hydra:
   job:

@@ -177,7 +177,7 @@ class UNetInferencerCoord():
 
                     plot_file = plot_dir / f"{key}.png"
 
-                    self.plot_control_points_on_mri_slice(
+                    self.plot_control_points_on_mri_slice(   
                         img=data[i].detach().cpu().numpy(),              # [C, D, H, W]
                         coords=coords_pred_vox[i].detach().cpu().numpy(), # [K, 3]
                         key=key,
