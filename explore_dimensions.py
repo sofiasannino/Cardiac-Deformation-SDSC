@@ -6,9 +6,10 @@ from pathlib import Path
 from omegaconf import OmegaConf
 import hydra
 from hydra.core.hydra_config import HydraConfig
+import logging 
 
 from src.trainer.unet_trainer import nnUNetTrainerCoord
-
+logger = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="src/configs/model", config_name="debug")
 def main(config):
