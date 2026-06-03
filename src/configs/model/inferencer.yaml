@@ -11,7 +11,7 @@ hidden_coord: 256
 dataset:
   _target_: src.datasets.inference_coord_dataset.nnUNetDatasetCoordTest
   folder: /home/renku/work/s3-bucket/cardiac_deformation_final_dataset
-  max_num_patients: 60
+  max_num_patients: 10
   max_num_patients_test: 15 #
   num_frames_per_patient: 20
 

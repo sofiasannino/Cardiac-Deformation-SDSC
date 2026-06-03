@@ -28,7 +28,7 @@ def ema_smooth(values, alpha=0.1):
 
 def plot_losses(config : omegaconf.DictConfig):
 
-    #training_history_json = Path('/home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-01_11-53-33/training_history.json')
+    #training_history_json = Path('/home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_15-07-39/training_history.json')
     training_history_json = config.history_json
     with open(training_history_json, "r", encoding = "utf-8" ) as f: 
          training_history = json.load(f)
