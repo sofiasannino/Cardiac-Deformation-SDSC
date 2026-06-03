@@ -20,8 +20,8 @@ num_val_iterations_per_epoch: 50
 num_epochs: 50 #
 current_epoch: 0
 ld_checkpoint : true
-tr_checkpoint_path : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_09-38-00/checkpoint_latest.pth 
-tr_checkpoint_path_best : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_09-38-00/checkpoint_best.pth
+tr_checkpoint_path : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_10-55-19/checkpoint_latest.pth
+tr_checkpoint_path_best : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_10-55-19/checkpoint_best.pth
 save_every: 1
 disable_checkpointing: false
 checkpoint_path: /home/renku/work/s3-bucket/nnUNet_results_0/Dataset027_ACDC/nnUNetTrainer_100epochs__nnUNetPlans__3d_fullres/fold_0/checkpoint_best.pth
