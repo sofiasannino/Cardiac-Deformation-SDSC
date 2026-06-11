@@ -114,6 +114,9 @@ class nnUNetTrainerCoord():
 
         ### Dataset
         self.dataset_class = nnUNetDatasetCoord
+        self.D_pad = config.D
+        self.H_pad = config.H
+        self.W_pad = config.W
 
         ### Some hyperparameters for you to fiddle with ---- > change this with config 
         self.initial_lr = config.initial_lr
@@ -667,10 +670,12 @@ class nnUNetTrainerCoord():
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
         dl_tr = nnUNetDataLoaderCoord(dataset_tr,
+                 tuple([self.D_pad, self.H_pad, self.W_pad]), 
                  self.batch_size, # 1 
                  sampling_probabilities=None,
                  transforms=None)
         dl_val = nnUNetDataLoaderCoord(dataset_val,
+                 tuple([self.D_pad, self.H_pad, self.W_pad]),
                  self.batch_size, # 1 
                  sampling_probabilities=None,
                  transforms=None)

@@ -1,17 +1,17 @@
 
 
 
-checkpoint_path : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-01_11-53-33-TRAIN-100/checkpoint_best.pth  #
+checkpoint_path : /home/renku/work/s3-bucket/OUTPUTS/unet_coord_runs/2026-06-03_19-00-04-TRAIN8lessfc/checkpoint_best.pth #
 batch_size : 1
 K: 1562 # points per label
-pool_size: 2 # avg pooling in coordinate head 
+pool_size: 8 # avg pooling in coordinate head 
 hidden_coord: 256
 
 
 dataset:
   _target_: src.datasets.inference_coord_dataset.nnUNetDatasetCoordTest
   folder: /home/renku/work/s3-bucket/cardiac_deformation_final_dataset
-  max_num_patients: 10
+  max_num_patients: 60
   max_num_patients_test: 15 #
   num_frames_per_patient: 20
 

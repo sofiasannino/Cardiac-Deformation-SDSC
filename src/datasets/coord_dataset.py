@@ -244,7 +244,7 @@ class nnUNetDatasetCoord(nnUNetBaseDataset):
 class nnUNetDataLoaderCoord(DataLoader):
     def __init__(self,
                  data: nnUNetDatasetCoord,
-                 pad_sizes : tuple,
+                 target_sizes : tuple,
                  batch_size: int = 1,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  transforms=None):
@@ -256,14 +256,15 @@ class nnUNetDataLoaderCoord(DataLoader):
         # this is used by DataLoader for sampling train cases!
         self.indices = sorted(list(data.identifiers.keys()))
         self.transforms = transforms
-        self.D_pad = pad_sizes[0]
-        self.H_pad = pad_sizes[1]
-        self.W_pad = pad_sizes[2]
-    def pad_or_crop_axis(data, coords, axis, target_size):
+        self.D_pad = int(target_sizes[0])
+        self.H_pad = int(target_sizes[1])
+        self.W_pad = int(target_sizes[2])
+
+    def pad_or_crop_axis(self, data, coords, axis, target_size):
         """
         data: np.ndarray with shape [C, D, H, W]
         coords: np.ndarray with shape [K, 3] in [z, y, x] order
-        axis: axis in data to pad/crop. Use 1 for D, 2 for H, 3 for W.
+        axis: axis in data to pad/crop, use 1 for D, 2 for H, 3 for W
         target_size: desired size along that axis
         """
 
@@ -327,9 +328,9 @@ class nnUNetDataLoaderCoord(DataLoader):
                     coords = coords[:, [2, 1, 0]]
 
                     # pad/crop data and update coords
-                    data, coords = self.pad_or_crop_axis(data, coords, axis=1, target_size=self.D_pad)
-                    data, coords = self.pad_or_crop_axis(data, coords, axis=2, target_size=self.H_pad)
-                    data, coords = self.pad_or_crop_axis(data, coords, axis=3, target_size=self.W_pad)
+                    data, coords = self.pad_or_crop_axis(data, coords, 1, self.D_pad)
+                    data, coords = self.pad_or_crop_axis(data, coords, 2, self.H_pad)
+                    data, coords = self.pad_or_crop_axis(data, coords, 3, self.W_pad)
 
                     C, D, H, W = data.shape
                     
