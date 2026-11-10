@@ -156,12 +156,13 @@ It must be downloaded separately from the official challenge website and used ac
 
 ## Project information
 
-This work was completed as a semester project in the **Section of Mathematics at EPFL**, in collaboration with the **Swiss Data Science Center**.
-
 Author: Sofia Sannino  
 Responsible professor: Prof. Olivier Verscheure  
 Supervisors: David Brüggemann and Quentin Duchemin  
-Period: Spring 2026  
+Period: Spring 2026 
+
+This work was completed as a semester project in the **Section of Mathematics at EPFL**, in collaboration with the **Swiss Data Science Center**.
+
 ---
 
 ## Citation
